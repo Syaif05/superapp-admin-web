@@ -2,8 +2,9 @@ import { Package, CheckCircle, TrendingUp } from 'lucide-react'
 
 export default function DashboardView({ products, histories }) {
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div className="space-y-6">
+      {/* Grid: 1 kolom di HP, 3 di Desktop */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-slate-500">Total Produk</p>
@@ -24,7 +25,7 @@ export default function DashboardView({ products, histories }) {
         </div>
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-slate-500">Status Server</p>
+            <p className="text-sm font-medium text-slate-500">Server Status</p>
             <p className="text-lg font-bold text-emerald-600 mt-1">Online</p>
           </div>
           <div className="p-3 bg-slate-50 rounded-xl">
@@ -34,17 +35,18 @@ export default function DashboardView({ products, histories }) {
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="p-6 border-b border-slate-50 flex justify-between items-center">
-          <h3 className="font-bold text-lg text-slate-800">Riwayat Pengiriman Terbaru</h3>
+        <div className="p-6 border-b border-slate-50">
+          <h3 className="font-bold text-lg text-slate-800">Riwayat Terakhir</h3>
         </div>
+        {/* Wrapper agar tabel bisa digeser di HP */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full text-left min-w-[600px]">
             <thead className="bg-slate-50/50 text-slate-500 text-xs uppercase tracking-wider">
               <tr>
                 <th className="p-4 font-semibold">Tanggal</th>
                 <th className="p-4 font-semibold">Email Pembeli</th>
                 <th className="p-4 font-semibold">Produk</th>
-                <th className="p-4 font-semibold">ID Transaksi</th>
+                <th className="p-4 font-semibold">ID</th>
                 <th className="p-4 font-semibold">Status</th>
               </tr>
             </thead>
@@ -53,9 +55,9 @@ export default function DashboardView({ products, histories }) {
                 <tr key={h.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="p-4 text-slate-500">{new Date(h.created_at).toLocaleDateString()}</td>
                   <td className="p-4 font-medium text-slate-900">{h.buyer_email}</td>
-                  <td className="p-4"><span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{h.product_name}</span></td>
-                  <td className="p-4 font-mono text-slate-400">{h.generated_id}</td>
-                  <td className="p-4"><span className="text-emerald-600 font-medium text-xs">Sukses</span></td>
+                  <td className="p-4"><span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-bold bg-blue-50 text-blue-700">{h.product_name}</span></td>
+                  <td className="p-4 font-mono text-slate-400 text-xs">{h.generated_id}</td>
+                  <td className="p-4"><span className="text-emerald-600 font-bold text-xs">SUKSES</span></td>
                 </tr>
               ))}
             </tbody>

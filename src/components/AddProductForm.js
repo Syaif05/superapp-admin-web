@@ -48,7 +48,7 @@ export default function AddProductForm({ onSuccess }) {
     } catch (error) {
       console.error(error)
       if (error.code === '23505') {
-        alert('Gagal: Produk dengan kode atau ID tersebut sudah ada. Coba refresh halaman.')
+        alert('Gagal: Produk dengan kode tersebut sudah ada.')
       } else {
         alert(`Gagal menyimpan: ${error.message}`)
       }
@@ -58,11 +58,11 @@ export default function AddProductForm({ onSuccess }) {
   }
 
   return (
-    <div className="max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-500">
-      <div className="bg-white rounded-2xl shadow-lg shadow-slate-200/50 border border-slate-100 p-8">
-        <h2 className="text-xl font-bold text-slate-800 mb-6">Konfigurasi Produk Baru</h2>
+    <div className="max-w-2xl mx-auto">
+      <div className="bg-white rounded-2xl shadow-lg shadow-slate-200/50 border border-slate-100 p-6 md:p-8">
+        <h2 className="text-xl font-bold text-slate-800 mb-6">Produk Baru</h2>
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700">Nama Produk</label>
               <input 
@@ -71,7 +71,7 @@ export default function AddProductForm({ onSuccess }) {
                 value={form.name} 
                 onChange={e => setForm({...form, name: e.target.value})}
                 placeholder="Database Film"
-                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
               />
             </div>
             <div className="space-y-2">
@@ -83,7 +83,7 @@ export default function AddProductForm({ onSuccess }) {
                 value={form.code} 
                 onChange={e => setForm({...form, code: e.target.value})}
                 placeholder="DF"
-                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all uppercase font-mono"
+                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none uppercase font-mono"
               />
             </div>
           </div>
@@ -96,7 +96,7 @@ export default function AddProductForm({ onSuccess }) {
               value={form.email} 
               onChange={e => setForm({...form, email: e.target.value})}
               placeholder="nama-grup@sekolah.sch.id"
-              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
             />
           </div>
 
@@ -105,7 +105,7 @@ export default function AddProductForm({ onSuccess }) {
             <select 
               value={form.role} 
               onChange={e => setForm({...form, role: e.target.value})}
-              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
             >
               <option value="MEMBER">MEMBER (Anggota)</option>
               <option value="MANAGER">MANAGER (Pengelola)</option>
@@ -133,7 +133,7 @@ export default function AddProductForm({ onSuccess }) {
           <button 
             disabled={isSubmitting} 
             type="submit" 
-            className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-slate-900/20 transition-all flex justify-center items-center"
+            className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 disabled:opacity-70 transition-all flex justify-center items-center shadow-lg shadow-slate-900/20"
           >
             {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : 'SIMPAN PRODUK'}
           </button>

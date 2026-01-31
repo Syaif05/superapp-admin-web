@@ -3,168 +3,256 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Akses Produk Digital Anda</title>
+    <title>Akses Database Game PC - Officialgame.id</title>
     <style>
-        /* RESET & BASE */
-        body { margin: 0; padding: 0; background-color: #f3f4f6; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+        /* --- RESET & BASE STYLES --- */
+        body { margin: 0; padding: 0; background-color: #080808; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #e0e0e0; -webkit-font-smoothing: antialiased; }
         table { border-spacing: 0; width: 100%; }
         td { padding: 0; }
         img { border: 0; }
-        a { text-decoration: none; }
+        a { text-decoration: none; transition: all 0.3s ease; }
 
-        /* STYLES */
-        .wrapper { width: 100%; table-layout: fixed; background-color: #f3f4f6; padding-bottom: 40px; }
-        .main-container { margin: 0 auto; max-width: 600px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-        
-        /* HEADER */
-        .header { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); padding: 40px 20px; text-align: center; color: #ffffff; }
-        .status-badge { background-color: rgba(255,255,255,0.2); padding: 5px 15px; border-radius: 50px; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; font-weight: bold; display: inline-block; margin-bottom: 15px; }
-        .header h1 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
-        .header p { margin: 10px 0 0 0; font-size: 16px; opacity: 0.9; }
+        /* --- MAIN WRAPPER & CONTAINER --- */
+        .wrapper { width: 100%; table-layout: fixed; background: #080808; background-image: radial-gradient(circle at 50% 0%, #1a1a2e 0%, #080808 70%); padding-bottom: 40px; }
+        .main-container {
+            margin: 0 auto;
+            max-width: 600px;
+            background-color: #121214;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 0 40px rgba(0, 243, 255, 0.1), inset 0 0 20px rgba(0, 0, 0, 0.5);
+            border: 1px solid #2a2a35;
+            position: relative;
+        }
+        /* Efek garis neon di atas container */
+        .main-container::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, #00f3ff, #bd00ff); box-shadow: 0 0 15px rgba(0, 243, 255, 0.5); }
 
-        /* BODY */
-        .body-content { padding: 30px; }
-        .intro-text { color: #4b5563; font-size: 16px; line-height: 1.6; margin-bottom: 25px; text-align: center; }
-
-        /* PRIMARY ACTION */
-        .cta-box { background-color: #eff6ff; border: 2px dashed #bfdbfe; border-radius: 8px; padding: 25px; text-align: center; margin-bottom: 30px; }
-        .cta-title { color: #1e3a8a; font-weight: bold; font-size: 18px; margin-bottom: 5px; display: block; }
-        .cta-sub { color: #6b7280; font-size: 13px; margin-bottom: 20px; display: block; }
-        .btn-main { background-color: #2563eb; color: #ffffff !important; padding: 15px 35px; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px rgba(37, 99, 235, 0.3); transition: background 0.3s; }
-        
-        /* CARDS SECTION */
-        .section-title { font-size: 14px; color: #9ca3af; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; margin: 30px 0 15px 0; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px; }
-        
-        .card { background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 10px; display: block; transition: all 0.2s; }
-        .card:hover { border-color: #2563eb; }
-        .card-icon { font-size: 20px; margin-right: 10px; vertical-align: middle; }
-        .card-text { color: #374151; font-weight: 600; font-size: 15px; vertical-align: middle; }
-        .card-arrow { float: right; color: #9ca3af; font-weight: bold; }
-
-        /* WARNING / TROUBLESHOOTING BOX */
-        .warning-box { background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 15px; border-radius: 4px; margin-top: 30px; }
-        .warning-title { color: #92400e; font-weight: bold; font-size: 15px; margin-bottom: 5px; display: block; }
-        .warning-text { color: #b45309; font-size: 13px; line-height: 1.5; }
-        .warning-link { color: #d97706; text-decoration: underline; font-weight: bold; }
-
-        /* SHOPEE PROMO BOX */
-        .shopee-box {
-            background: linear-gradient(90deg, #ee4d2d 0%, #ff7337 100%);
-            border-radius: 12px;
-            padding: 20px;
+        /* --- HEADER SECTION --- */
+        .header {
+            padding: 40px 30px;
             text-align: center;
-            margin-top: 35px;
-            color: #ffffff;
-            box-shadow: 0 5px 15px rgba(238, 77, 45, 0.3);
+            background: linear-gradient(180deg, rgba(20, 20, 30, 0.8) 0%, rgba(18, 18, 20, 1) 100%);
+            border-bottom: 1px solid #2a2a35;
+            position: relative;
+        }
+        .status-badge {
+            background: rgba(0, 243, 255, 0.1); color: #00f3ff; border: 1px solid #00f3ff;
+            padding: 6px 16px; border-radius: 4px; font-size: 11px; font-weight: 800; letter-spacing: 2px;
+            text-transform: uppercase; display: inline-block; margin-bottom: 20px; box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+        }
+        .header h1 {
+            margin: 0; font-size: 36px; font-weight: 900; letter-spacing: 1px;
+            background: linear-gradient(90deg, #ffffff 0%, #00f3ff 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            text-transform: uppercase; text-shadow: 0 0 20px rgba(0, 243, 255, 0.3);
+        }
+        .header p { margin: 10px 0 0 0; font-size: 14px; color: #888899; font-family: monospace; letter-spacing: 1px; }
+
+        /* --- BODY CONTENT --- */
+        .body-content { padding: 30px; }
+        .intro-text { color: #a0a0b0; font-size: 15px; line-height: 1.7; margin-bottom: 30px; text-align: center; }
+
+        /* --- DETAIL PAKET BOX (CUSTOM) --- */
+        .detail-box {
+            background-color: #1a1a22;
+            border: 1px solid #333344;
+            border-left: 4px solid #bd00ff;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
             position: relative;
             overflow: hidden;
         }
-        .shopee-box:after {
-            content: "";
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: rgba(255,255,255,0.1);
-            transform: rotate(45deg);
+        .detail-box::after { /* Efek sirkuit halus */
+            content: ''; position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+            background-image: repeating-linear-gradient(45deg, rgba(189, 0, 255, 0.03) 0px, rgba(189, 0, 255, 0.03) 2px, transparent 2px, transparent 10px);
             pointer-events: none;
         }
-        .shopee-title { font-size: 18px; font-weight: bold; margin-bottom: 5px; display: block; }
-        .shopee-text { font-size: 13px; margin-bottom: 15px; display: block; opacity: 0.9; }
-        .btn-shopee {
-            background-color: #ffffff;
-            color: #ee4d2d !important;
-            padding: 10px 20px;
-            border-radius: 50px;
-            font-weight: bold;
-            font-size: 14px;
+        .detail-title { font-size: 16px; font-weight: 800; color: #bd00ff; margin-bottom: 15px; display: block; letter-spacing: 1px; }
+        .detail-item { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; border-bottom: 1px dashed #333344; padding-bottom: 8px; }
+        .detail-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .detail-label { color: #888899; font-weight: 600; }
+        .detail-value { color: #e0e0e0; font-weight: 700; text-align: right; }
+        .highlight-value { color: #00f3ff; text-shadow: 0 0 5px rgba(0, 243, 255, 0.4); }
+
+        /* --- CTA MAIN BUTTON --- */
+        .cta-wrapper { text-align: center; margin-bottom: 40px; }
+        .btn-main {
+            background: linear-gradient(90deg, #00f3ff 0%, #bd00ff 100%);
+            color: #ffffff !important;
+            padding: 18px 40px;
+            border-radius: 6px;
+            font-weight: 800;
+            font-size: 16px;
             display: inline-block;
             text-transform: uppercase;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            letter-spacing: 1.5px;
+            box-shadow: 0 0 25px rgba(0, 243, 255, 0.4);
+            position: relative; overflow: hidden; border: 2px solid transparent;
         }
+        .btn-main:hover { box-shadow: 0 0 40px rgba(189, 0, 255, 0.6); }
+        .btn-sub { display: block; margin-top: 15px; font-size: 12px; color: #666677; font-family: monospace; }
 
-        /* FOOTER */
-        .footer { background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; }
+        /* --- GUIDES SECTION --- */
+        .section-header { 
+            display: flex; align-items: center; margin-bottom: 20px; 
+            font-family: monospace; color: #00f3ff; font-size: 12px; letter-spacing: 2px; font-weight: 800;
+        }
+        .section-header::after { content: ''; flex: 1; height: 1px; background: #2a2a35; margin-left: 15px; }
+        
+        .guide-grid { display: flex; gap: 10px; margin-bottom: 10px; }
+        .guide-card {
+            flex: 1; background-color: #1a1a22; border: 1px solid #333344; border-radius: 6px; padding: 15px;
+            display: flex; align-items: center; transition: all 0.3s; position: relative; overflow: hidden;
+        }
+        .guide-card:hover { border-color: #00f3ff; background-color: #202028; box-shadow: 0 0 15px rgba(0, 243, 255, 0.2); }
+        .guide-icon { font-size: 24px; margin-right: 15px; filter: drop-shadow(0 0 5px rgba(255,255,255,0.3)); }
+        .guide-info { flex: 1; }
+        .guide-title { display: block; font-weight: 700; font-size: 14px; color: #e0e0e0; margin-bottom: 4px; }
+        .guide-link-text { font-size: 11px; color: #00f3ff; font-family: monospace; }
+
+        /* --- TROUBLESHOOTING BOX --- */
+        .alert-box {
+            background-color: rgba(255, 51, 51, 0.05);
+            border: 1px solid #ff3333;
+            border-left-width: 4px;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 30px;
+            display: flex;
+            align-items: flex-start;
+        }
+        .alert-icon { font-size: 20px; margin-right: 15px; color: #ff3333; }
+        .alert-content { flex: 1; }
+        .alert-title { font-weight: 800; font-size: 14px; color: #ff3333; margin-bottom: 5px; display: block; letter-spacing: 1px; }
+        .alert-text { font-size: 13px; color: #ccaaaa; line-height: 1.5; }
+        .alert-link { color: #ff6666; text-decoration: underline; font-weight: 700; }
+
+        /* --- SHOPEE PROMO VENDOR --- */
+        .vendor-box {
+            margin-top: 40px;
+            background: linear-gradient(135deg, #2a1a1a 0%, #4a2525 100%);
+            border: 1px solid #ee4d2d;
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            position: relative;
+            box-shadow: 0 0 20px rgba(238, 77, 45, 0.2);
+        }
+        .vendor-title { color: #ff7337; font-size: 18px; font-weight: 900; margin-bottom: 8px; display: block; letter-spacing: 1px; }
+        .vendor-text { font-size: 13px; color: #ffbb99; margin-bottom: 20px; opacity: 0.9; }
+        .btn-vendor {
+            background: transparent; color: #ff7337 !important;
+            padding: 10px 30px; border: 2px solid #ff7337; border-radius: 50px;
+            font-weight: 800; font-size: 13px; display: inline-block; text-transform: uppercase;
+        }
+        .btn-vendor:hover { background: #ff7337; color: #ffffff !important; box-shadow: 0 0 15px rgba(238, 77, 45, 0.5); }
+
+        /* --- FOOTER --- */
+        .footer { background-color: #0f0f12; padding: 30px; text-align: center; font-size: 11px; color: #555566; font-family: monospace; border-top: 1px solid #2a2a35; }
+        .footer p { margin: 5px 0; }
     </style>
 </head>
 <body>
-
     <div class="wrapper">
         <table role="presentation" width="100%">
             <tr>
-                <td align="center" style="padding-top: 20px;">
-                    
+                <td align="center" style="padding-top: 30px;">
                     <div class="main-container">
                         
                         <div class="header">
-                            <span class="status-badge">✅ Order Completed</span>
-                            <h1>Terima Kasih!</h1>
-                            <p>Sudah membeli di Officialgame.id</p>
+                            <span class="status-badge">⚡ SYSTEM: PAYMENT SUCCESS</span>
+                            <h1>DATABASE GAME PC</h1>
+                            <p>Ultimate Collection // Officialgame.id</p>
                         </div>
 
                         <div class="body-content">
-                            
                             <p class="intro-text">
-                                Halo! Pesanan Anda telah kami proses. Berikut adalah akses eksklusif ke database dan panduan lengkap yang telah kami siapkan untuk Anda.
+                                <strong style="color: #ffffff;">Welcome, Player!</strong><br>
+                                Akses premium Anda telah dikonfirmasi. Bersiaplah untuk menjelajahi ribuan judul game dengan kecepatan penuh dari server kami.
                             </p>
 
-                            <div class="cta-box">
-                                <span class="cta-title">📂 Database Game PC</span>
-                                <span class="cta-sub">File tersimpan aman di Google Drive (Shared Drives)</span>
-                                <a href="https://drive.google.com/drive/folders/0AKoF9cUlMOnRUk9PVA" class="btn-main">BUKA DATABASE SEKARANG</a>
-                            </div>
-
-                            <div class="section-title">Panduan Penggunaan</div>
-
-                            <a href="https://drive.google.com/file/d/1NzA3tudfOlzjVwUeDv7jtf6AM3MhYGFS/view?usp=drivesdk" class="card">
-                                <span class="card-icon">💻</span>
-                                <span class="card-text">Cara Akses via Komputer/PC</span>
-                                <span class="card-arrow">→</span>
-                            </a>
-
-                            <a href="https://drive.google.com/file/d/1Nt-ta09m31G6d0ATMrb0AJAPnvRYIooS/view?usp=drivesdk" class="card">
-                                <span class="card-icon">📱</span>
-                                <span class="card-text">Cara Akses via Handphone</span>
-                                <span class="card-arrow">→</span>
-                            </a>
-                            
-                            <a href="https://drive.google.com/file/d/1mjcUYW79ZX2ko7wpFID1NpZnH-gzuXzT/view?usp=drive_link" class="card" style="border-left: 3px solid #10b981;">
-                                <span class="card-icon">🛠️</span>
-                                <span class="card-text">Cara Ekstrak & Install File</span>
-                                <span class="card-arrow">→</span>
-                            </a>
-
-                            <div class="warning-box">
-                                <span class="warning-title">⚠️ Mengalami "Limit Download"?</span>
-                                <div class="warning-text">
-                                    Google Drive terkadang membatasi download jika trafik tinggi. Jangan panik, ini solusinya:
-                                    <ul style="padding-left: 20px; margin-top: 5px; margin-bottom: 0;">
-                                        <li style="margin-bottom: 4px;"><a href="https://youtu.be/2uoCcnbTnn0" class="warning-link">Solusi Langsung (Video)</a></li>
-                                        <li><a href="https://youtu.be/UYExAXotutw" class="warning-link">Solusi dengan Aplikasi (Video)</a></li>
-                                    </ul>
+                            <div class="detail-box">
+                                <span class="detail-title">📋 SYSTEM SPECS / DETAIL PAKET</span>
+                                <div class="detail-item">
+                                    <span class="detail-label">Produk:</span>
+                                    <span class="detail-value">Full Access Database PC Games</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Platform:</span>
+                                    <span class="detail-value">Google Drive (Shared Drives)</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Isi Konten:</span>
+                                    <span class="detail-value">Game AAA, Indie, & Software</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Status Akun:</span>
+                                    <span class="detail-value highlight-value">LIFETIME ACTIVE ✅</span>
                                 </div>
                             </div>
 
-                            <div class="shopee-box">
-                                <span class="shopee-title">🔥 OFFICIALGAME.ID</span>
-                                <span class="shopee-text">Cari game PC lainnya? Kunjungi toko resmi kami di Shopee untuk update terbaru dan promo diskon!</span>
-                                <a href="https://shopee.co.id/officialgame.id" class="btn-shopee">KUNJUNGI TOKO 🛍️</a>
+                            <div class="cta-wrapper">
+                                <a href="https://drive.google.com/drive/folders/0AKoF9cUlMOnRUk9PVA" class="btn-main">
+                                    ▶ LAUNCH GAME LIBRARY
+                                </a>
+                                <span class="btn-sub">Click to initialize secure connection to cloud server.</span>
                             </div>
 
+                            <div class="section-header">INSTALLATION MANUALS</div>
+                            
+                            <div class="guide-grid">
+                                <a href="https://drive.google.com/file/d/1NzA3tudfOlzjVwUeDv7jtf6AM3MhYGFS/view?usp=drivesdk" class="guide-card">
+                                    <span class="guide-icon">🖥️</span>
+                                    <div class="guide-info">
+                                        <span class="guide-title">Akses via PC/Laptop</span>
+                                        <span class="guide-link-text">[ VIEW TUTORIAL ]</span>
+                                    </div>
+                                </a>
+                                <a href="https://drive.google.com/file/d/1Nt-ta09m31G6d0ATMrb0AJAPnvRYIooS/view?usp=drivesdk" class="guide-card">
+                                    <span class="guide-icon">📱</span>
+                                    <div class="guide-info">
+                                        <span class="guide-title">Akses via Android/HP</span>
+                                        <span class="guide-link-text">[ VIEW TUTORIAL ]</span>
+                                    </div>
+                                </a>
+                            </div>
+                            <a href="https://drive.google.com/file/d/1mjcUYW79ZX2ko7wpFID1NpZnH-gzuXzT/view?usp=drive_link" class="guide-card" style="margin-bottom: 0;">
+                                <span class="guide-icon">⚙️</span>
+                                <div class="guide-info">
+                                    <span class="guide-title">Cara Extract & Install Game</span>
+                                    <span class="guide-link-text" style="color: #bd00ff;">[ VIEW TECHNICAL GUIDE ]</span>
+                                </div>
+                            </a>
+
+                            <div class="alert-box">
+                                <span class="alert-icon">⚠️</span>
+                                <div class="alert-content">
+                                    <span class="alert-title">SERVER ALERT: LIMIT DOWNLOAD</span>
+                                    <span class="alert-text">
+                                        Jika Google Drive mencapai batas kuota harian, gunakan metode bypass ini agar download tetap jalan:
+                                        <br>
+                                        <a href="https://youtu.be/2uoCcnbTnn0" class="alert-link">Metode 1 (Direct Bypass)</a> &bull; 
+                                        <a href="https://youtu.be/UYExAXotutw" class="alert-link">Metode 2 (Via Aplikasi)</a>
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="vendor-box">
+                                <span class="vendor-title">🛒 OFFICIALGAME.ID VENDOR</span>
+                                <span class="vendor-text">Butuh equipment baru atau game lain? Cek inventori terbaru kami di Shopee.</span>
+                                <a href="https://shopee.co.id/officialgame.id" class="btn-vendor">VISIT STORE</a>
+                            </div>
                         </div>
 
                         <div class="footer">
-                            <p>Pesan ini dikirim secara otomatis ke email Anda.<br>Simpan email ini jika sewaktu-waktu Anda membutuhkan akses kembali.</p>
-                            <p>© 2024 Officialgame.id. All rights reserved.</p>
+                            <p>AUTO-GENERATED SYSTEM MESSAGE. DO NOT REPLY.</p>
+                            <p>© 2024 Officialgame.id // GLHF (Good Luck Have Fun)</p>
                         </div>
 
                     </div>
-
                 </td>
             </tr>
         </table>
     </div>
-
 </body>
 </html>

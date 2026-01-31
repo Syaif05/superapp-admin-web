@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Private Access - Database 18</title>
+    <style>
+        /* --- RESET & BASE STYLES --- */
+        body { margin: 0; padding: 0; background-color: #050005; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #e0e0e0; -webkit-font-smoothing: antialiased; }
+        table { border-spacing: 0; width: 100%; }
+        td { padding: 0; }
+        img { border: 0; }
+        a { text-decoration: none; transition: all 0.3s ease; }
+
+        /* --- WRAPPER & CONTAINER --- */
+        .wrapper { width: 100%; table-layout: fixed; background-color: #000000; padding-bottom: 40px; }
+        .main-container {
+            margin: 0 auto;
+            max-width: 600px;
+            background-color: #0f0f0f; /* Hampir hitam */
+            border-radius: 8px; /* Sudut tidak terlalu bulat agar tegas */
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(255, 0, 128, 0.15); /* Glow pink halus */
+            border: 1px solid #1f1f1f;
+            border-top: 3px solid #ff0080; /* Garis Hot Pink di atas */
+        }
+
+        /* --- HEADER SECTION --- */
+        .header {
+            padding: 45px 30px;
+            text-align: center;
+            background: radial-gradient(circle at center, #2e001f 0%, #0f0f0f 100%); /* Gradasi Ungu Gelap ke Hitam */
+            border-bottom: 1px solid #1f1f1f;
+        }
+        .status-badge {
+            background-color: transparent;
+            color: #ff0080;
+            border: 1px solid #ff0080;
+            padding: 5px 12px;
+            border-radius: 2px;
+            font-size: 10px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            font-weight: bold;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 32px;
+            font-weight: 300; /* Font tipis agar elegan */
+            color: #ffffff;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        .header h1 strong { font-weight: 800; color: #ff0080; } /* Warna Pink pada kata kunci */
+        .header p { margin: 10px 0 0 0; font-size: 13px; color: #777; font-style: italic; letter-spacing: 1px; }
+
+        /* --- BODY CONTENT --- */
+        .body-content { padding: 40px 30px; }
+        
+        /* --- PRODUCT INFO BOX --- */
+        .info-box {
+            background-color: #161616;
+            border-left: 3px solid #9d00ff; /* Aksen Ungu */
+            padding: 20px;
+            margin-bottom: 35px;
+        }
+        .info-row { display: block; margin-bottom: 8px; font-size: 14px; color: #aaa; }
+        .info-label { width: 100px; display: inline-block; color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+        .info-val { color: #fff; font-weight: 600; }
+        .active-status { color: #00ff66; text-shadow: 0 0 5px rgba(0, 255, 102, 0.3); }
+
+        /* --- CTA BUTTON (Fokus Utama) --- */
+        .cta-container { text-align: center; margin-bottom: 40px; }
+        .btn-main {
+            background: linear-gradient(45deg, #d4006a 0%, #ff0080 100%); /* Hot Pink Gradient */
+            color: #ffffff !important;
+            padding: 16px 45px;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 15px;
+            display: inline-block;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 5px 20px rgba(255, 0, 128, 0.4);
+            transition: transform 0.2s;
+        }
+        .btn-sub { display: block; margin-top: 15px; font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* --- GUIDES (Minimalist) --- */
+        .section-title { 
+            font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 2px; 
+            text-align: center; margin-bottom: 20px; border-bottom: 1px solid #1f1f1f; line-height: 0.1em;
+        }
+        .section-title span { background:#0f0f0f; padding:0 10px; }
+
+        .guide-grid { width: 100%; border-spacing: 10px; }
+        .guide-card {
+            background-color: #161616;
+            border: 1px solid #222;
+            padding: 15px;
+            text-align: center;
+            border-radius: 4px;
+        }
+        .guide-card:hover { border-color: #ff0080; }
+        .guide-icon { font-size: 20px; display: block; margin-bottom: 8px; opacity: 0.8; }
+        .guide-text { font-size: 13px; color: #ccc; font-weight: 500; display: block; }
+        .guide-arrow { font-size: 12px; color: #ff0080; display: block; margin-top: 5px; }
+
+        /* --- WARNING BOX (Discreet) --- */
+        .alert-box {
+            margin-top: 30px;
+            padding: 15px;
+            background-color: #1a0f0f;
+            border: 1px solid #331111;
+            color: #aa5555;
+            font-size: 12px;
+            text-align: center;
+            border-radius: 4px;
+        }
+        .alert-link { color: #cc6666; text-decoration: underline; }
+
+        /* --- FOOTER (Safe & Professional) --- */
+        .footer { background-color: #080808; padding: 30px; text-align: center; font-size: 11px; color: #444; border-top: 1px solid #1f1f1f; }
+        .age-badge { border: 1px solid #333; color: #666; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin-bottom: 10px; display: inline-block; }
+    </style>
+</head>
+<body>
+
+    <div class="wrapper">
+        <table role="presentation" width="100%">
+            <tr>
+                <td align="center" style="padding-top: 30px;">
+                    
+                    <div class="main-container">
+                        
+                        <div class="header">
+                            <span class="status-badge">Private Access</span>
+                            <h1>DATABASE <strong>FILM 18</strong></h1>
+                            <p>Premium Collection // Officialgame.id</p>
+                        </div>
+
+                        <div class="body-content">
+                            
+                            <p style="text-align: center; color: #999; font-size: 14px; margin-bottom: 30px; line-height: 1.6;">
+                                Akses eksklusif Anda telah dikonfirmasi. <br>Harap jaga kerahasiaan link ini untuk kenyamanan bersama.
+                            </p>
+
+                            <div class="info-box">
+                                <span class="info-row">
+                                    <span class="info-label">Produk</span>
+                                    <span class="info-val">Full Database Film 18+</span>
+                                </span>
+                                <span class="info-row">
+                                    <span class="info-label">Kualitas</span>
+                                    <span class="info-val">HD / Full HD Collection</span>
+                                </span>
+                                <span class="info-row" style="margin-bottom: 0;">
+                                    <span class="info-label">Status</span>
+                                    <span class="info-val active-status">● ACCESS GRANTED</span>
+                                </span>
+                            </div>
+
+                            <div class="cta-container">
+                                <a href="https://drive.google.com/drive/folders/0AHAIrqTbDUI9Uk9PVA" class="btn-main">
+                                    🔒 BUKA DATABASE SEKARANG
+                                </a>
+                                <span class="btn-sub">Secure Cloud Storage</span>
+                            </div>
+
+                            <div class="section-title"><span>PANDUAN AKSES</span></div>
+
+                            <table class="guide-grid">
+                                <tr>
+                                    <td width="50%" style="padding-right: 5px;">
+                                        <a href="https://drive.google.com/file/d/1NzA3tudfOlzjVwUeDv7jtf6AM3MhYGFS/view?usp=drivesdk" style="text-decoration: none;">
+                                            <div class="guide-card">
+                                                <span class="guide-icon">💻</span>
+                                                <span class="guide-text">Via Komputer</span>
+                                                <span class="guide-arrow">Lihat Panduan &rarr;</span>
+                                            </div>
+                                        </a>
+                                    </td>
+                                    <td width="50%" style="padding-left: 5px;">
+                                        <a href="https://drive.google.com/file/d/1Nt-ta09m31G6d0ATMrb0AJAPnvRYIooS/view?usp=drivesdk" style="text-decoration: none;">
+                                            <div class="guide-card">
+                                                <span class="guide-icon">📱</span>
+                                                <span class="guide-text">Via Handphone</span>
+                                                <span class="guide-arrow">Lihat Panduan &rarr;</span>
+                                            </div>
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <div class="alert-box">
+                                <strong>⚠️ Info Limit Download Google Drive</strong><br>
+                                Jika tidak bisa memutar/download karena trafik tinggi:<br>
+                                <a href="https://youtu.be/2uoCcnbTnn0" class="alert-link">Solusi 1 (Langsung)</a> &nbsp;|&nbsp; 
+                                <a href="https://youtu.be/UYExAXotutw" class="alert-link">Solusi 2 (Aplikasi)</a>
+                            </div>
+
+                            <div style="text-align: center; margin-top: 30px;">
+                                <a href="https://shopee.co.id/officialgame.id" style="color: #666; font-size: 12px; border: 1px solid #333; padding: 8px 20px; border-radius: 50px; text-transform: uppercase;">
+                                    Kunjungi Official Store
+                                </a>
+                            </div>
+
+                        </div>
+
+                        <div class="footer">
+                            <span class="age-badge">18+ ONLY</span>
+                            <p>Konten ini ditujukan hanya untuk penggunaan pribadi dewasa.<br>Penyalahgunaan konten di luar tanggung jawab penyedia.</p>
+                            <p>© 2024 Officialgame.id</p>
+                        </div>
+
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+</body>
+</html>

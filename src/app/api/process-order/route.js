@@ -2,7 +2,6 @@ import { createClient } from '@supabase/supabase-js'
 import { google } from 'googleapis'
 import { NextResponse } from 'next/server'
 
-// 1. Helper Decode Kunci
 const getPrivateKey = () => {
   const key = process.env.GOOGLE_PRIVATE_KEY || '';
   if (key.startsWith('LS0t')) {
@@ -11,10 +10,8 @@ const getPrivateKey = () => {
   return key.replace(/\\n/g, '\n');
 };
 
-// 2. Helper Buat Email (Format Raw)
 const createEmailMessage = (to, subject, htmlBody) => {
   const adminEmail = process.env.GOOGLE_ADMIN_EMAIL;
-  // Encode Subject biar support Emoji/Karakter khusus
   const utf8Subject = `=?utf-8?B?${Buffer.from(subject).toString('base64')}?=`;
   const messageParts = [
     `From: SuperApp Admin <${adminEmail}>`,
@@ -37,7 +34,6 @@ const supabase = createClient(
   process.env.SUPABASE_KEY
 )
 
-// 3. Auth Tunggal (Gmail + Drive + Admin)
 const jwtClient = new google.auth.JWT({
   email: process.env.GOOGLE_CLIENT_EMAIL,
   key: getPrivateKey(),
@@ -49,12 +45,20 @@ const jwtClient = new google.auth.JWT({
   subject: process.env.GOOGLE_ADMIN_EMAIL
 });
 
+const getTemplate = async (type) => {
+    const { data } = await supabase
+        .from('email_templates')
+        .select('*')
+        .eq('type', type)
+        .single()
+    return data
+}
+
 export async function POST(req) {
   try {
     const { email_pembeli, product_ids } = await req.json()
     const transactionId = `TRX-${Date.now()}`
     
-    // Ambil Data Produk
     const { data: products } = await supabase
       .from('products')
       .select('*')
@@ -68,23 +72,18 @@ export async function POST(req) {
     const gmailService = google.gmail({ version: 'v1', auth: jwtClient })
     
     const successList = []
-    const responseData = [] // Data untuk dikirim balik ke HP
+    const responseData = []
 
-    // --- PROSES SETIAP PRODUK ---
     for (const product of products) {
-      // 1. Masukkan ke Google Group (Jika ada)
       if (product.group_email) {
         try {
           await adminService.members.insert({
             groupKey: product.group_email,
             requestBody: { email: email_pembeli, role: product.role || 'MEMBER' }
           })
-        } catch (err) {
-            console.log(`Info: User mungkin sudah ada di grup.`);
-        } 
+        } catch (err) {} 
       }
       
-      // 2. Simpan History
       await supabase.from('history').insert({
         buyer_email: email_pembeli,
         product_name: product.name,
@@ -93,75 +92,55 @@ export async function POST(req) {
         status: 'SUCCESS'
       })
       
-      successList.push(product) // Simpan object produk lengkap
+      successList.push(product)
       
-      // 3. Siapkan Data untuk HP (Agar tidak NULL)
       responseData.push({
           id: transactionId,
           status: 'Sent',
-          product_name: product.name,      // <-- PENTING: Supaya di HP muncul nama produk
-          product_code: product.product_code // <-- PENTING: Supaya kode akses sesuai DB
+          product_name: product.name,
+          product_code: product.product_code
       })
     }
 
-    // --- KIRIM EMAIL (TEMPLATE HTML BARU) ---
     try {
-        // Gabungkan nama produk jadi koma (Contoh: Produk A, Produk B)
-        const productNames = successList.map(p => p.name).join(', ');
+        const templateData = await getTemplate('order_success') 
         
-        // Subject Email yang Lebih Bagus
-        const emailSubject = `Pesanan Anda: ${productNames} (#${transactionId})`;
+        let emailSubject = templateData?.subject_template || `Pesanan Berhasil: {{product_names}} (#{{transaction_id}})`
+        let emailHtml = templateData?.html_content || `<h1>Terima Kasih</h1><p>Pesanan {{product_names}} berhasil.</p>`
 
-        // Template HTML (Silakan edit bagian ini jika ingin ubah tampilan)
-        const emailContent = `
-          <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px;">
-            <div style="background-color: #1a1a2e; padding: 20px; color: white; text-align: center; border-radius: 8px 8px 0 0;">
-              <h2>Terima Kasih!</h2>
-              <p>Pesanan Anda telah berhasil diproses.</p>
-            </div>
-            <div style="border: 1px solid #ddd; padding: 20px; border-radius: 0 0 8px 8px;">
-              <p>Halo, <b>${email_pembeli}</b></p>
-              <p>Berikut adalah detail pesanan Anda:</p>
-              
-              <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-                <tr style="background-color: #f2f2f2;">
-                  <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Nama Produk</th>
-                  <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Kode / Akses</th>
-                </tr>
-                ${successList.map(p => `
-                  <tr>
-                    <td style="padding: 10px; border: 1px solid #ddd;">${p.name}</td>
-                    <td style="padding: 10px; border: 1px solid #ddd;"><b>${p.product_code || 'Akses Grup Aktif'}</b></td>
-                  </tr>
-                `).join('')}
-              </table>
+        const productNames = successList.map(p => p.name).join(', ')
+        const productRows = successList.map(p => `
+            <tr>
+                <td style="padding: 10px; border: 1px solid #ddd;">${p.name}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;"><b>${p.product_code || 'Akses Grup Aktif'}</b></td>
+            </tr>
+        `).join('')
 
-              <p style="margin-top: 20px;">ID Transaksi: <code>${transactionId}</code></p>
-              <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-              <p style="font-size: 12px; color: #888;">Email ini dikirim otomatis oleh SuperApp Admin.</p>
-            </div>
-          </div>
-        `;
+        emailSubject = emailSubject
+            .replace(/{{transaction_id}}/g, transactionId)
+            .replace(/{{product_names}}/g, productNames)
 
-        const rawMessage = createEmailMessage(email_pembeli, emailSubject, emailContent);
+        emailHtml = emailHtml
+            .replace(/{{transaction_id}}/g, transactionId)
+            .replace(/{{buyer_email}}/g, email_pembeli)
+            .replace(/{{product_names}}/g, productNames)
+            .replace(/{{product_table}}/g, productRows)
+
+        const rawMessage = createEmailMessage(email_pembeli, emailSubject, emailHtml);
 
         await gmailService.users.messages.send({
             userId: 'me',
             requestBody: { raw: rawMessage }
         });
 
-    } catch (emailError) {
-        console.error("Gagal kirim email:", emailError.message);
-    }
+    } catch (emailError) {}
 
-    // KIRIM RESPONSE JSON LENGKAP KE HP
     return NextResponse.json({ 
         message: 'Order berhasil', 
-        data: responseData // <-- HP akan membaca data ini
+        data: responseData 
     })
 
   } catch (error) {
-    console.error("SERVER ERROR:", error);
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

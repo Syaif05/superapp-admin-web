@@ -61,12 +61,13 @@ export async function POST(req) {
 
     const driveService = google.drive({ version: 'v3', auth: jwtClient })
     const adminService = google.admin({ version: 'directory_v1', auth: jwtClient })
-    const gmailService = google.gmail({ version: 'v1', auth: jwtClient }) // <-- KITA PAKAI INI
+    const gmailService = google.gmail({ version: 'v1', auth: jwtClient })
     
     const processedItems = []
+    const responseData = []
 
     for (const item of items) {
-      // 1. GOOGLE DRIVE
+      // 1. Google Drive
       if (item.drive_url && item.drive_url.includes('drive.google.com')) {
         try {
             const fileIdMatch = item.drive_url.match(/[-\w]{25,}/)
@@ -79,7 +80,7 @@ export async function POST(req) {
         } catch (err) { console.error("Drive Error:", err.message) }
       }
 
-      // 2. GOOGLE GROUP
+      // 2. Google Group
       const groupEmail = item.link_categories?.group_email
       if (groupEmail) {
         try {
@@ -90,7 +91,7 @@ export async function POST(req) {
         } catch (e) {}
       }
 
-      // 3. DATABASE
+      // 3. Database
       await supabase.from('history').insert({
         buyer_email: email_pembeli,
         product_name: item.name,
@@ -98,24 +99,41 @@ export async function POST(req) {
         generated_id: transactionId,
         status: 'SUCCESS'
       })
-      processedItems.push(item.name)
+      processedItems.push(item)
+      
+      // 4. Data Balikan ke HP (Fix Null)
+      responseData.push({
+          id: transactionId,
+          status: 'Sent',
+          product_name: item.name,     // <-- Fix nama produk null
+          product_code: 'LINK AKSES'    // <-- Fix kode akses
+      })
     }
 
-    // 4. KIRIM EMAIL (Via Gmail API)
+    // --- KIRIM EMAIL ---
     try {
+        const itemNames = processedItems.map(p => p.name).join(', ');
+        const emailSubject = `Akses Terkirim: ${itemNames}`;
+
         const emailContent = `
-          <h2>Akses Diberikan!</h2>
-          <p>ID Transaksi: <b>${transactionId}</b></p>
-          <p>Item Anda:</p>
-          <ul>${processedItems.map(n => `<li><b>${n}</b></li>`).join('')}</ul>
-          <p>Silakan cek <b>Google Drive</b> Anda (Menu 'Dibagikan kepada saya' / 'Shared with me').</p>
+          <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px;">
+            <div style="background-color: #007bff; padding: 20px; color: white; text-align: center; border-radius: 8px 8px 0 0;">
+              <h2>Akses Diberikan!</h2>
+            </div>
+            <div style="border: 1px solid #ddd; padding: 20px; border-radius: 0 0 8px 8px;">
+              <p>Akses untuk item berikut telah dibuka:</p>
+              <ul>
+                ${processedItems.map(n => `<li><b>${n.name}</b></li>`).join('')}
+              </ul>
+              <p style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #007bff;">
+                Silakan cek menu <b>"Dibagikan kepada saya" (Shared with me)</b> di Google Drive Anda.
+              </p>
+              <p>ID Transaksi: <code>${transactionId}</code></p>
+            </div>
+          </div>
         `;
 
-        const rawMessage = createEmailMessage(
-            email_pembeli, 
-            `Link Akses Anda: ${transactionId}`, 
-            emailContent
-        );
+        const rawMessage = createEmailMessage(email_pembeli, emailSubject, emailContent);
 
         await gmailService.users.messages.send({
             userId: 'me',
@@ -126,7 +144,11 @@ export async function POST(req) {
         console.error("Gagal kirim email link:", emailError.message);
     }
 
-    return NextResponse.json({ message: 'Link order sukses', data: [transactionId] })
+    return NextResponse.json({ 
+        message: 'Link order sukses', 
+        data: responseData // <-- Kirim data lengkap ke HP
+    })
+
   } catch (error) {
     console.error("FINAL LINK ERROR:", error);
     return NextResponse.json({ error: error.message }, { status: 500 })

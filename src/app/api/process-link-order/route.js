@@ -16,17 +16,17 @@ const supabase = createClient(
   process.env.SUPABASE_KEY
 )
 
-const jwtClient = new google.auth.JWT(
-  process.env.GOOGLE_CLIENT_EMAIL,
-  null,
-  getPrivateKey(),
-  [
+// SETUP AUTH GOOGLE (FORMAT BARU)
+const jwtClient = new google.auth.JWT({
+  email: process.env.GOOGLE_CLIENT_EMAIL,
+  key: getPrivateKey(),
+  scopes: [
     'https://www.googleapis.com/auth/admin.directory.group',
     'https://www.googleapis.com/auth/gmail.send',
     'https://www.googleapis.com/auth/drive'
   ],
-  process.env.GOOGLE_ADMIN_EMAIL
-)
+  subject: process.env.GOOGLE_ADMIN_EMAIL
+});
 
 export async function POST(req) {
   try {
@@ -42,11 +42,13 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Item tidak ditemukan' }, { status: 404 })
     }
 
+    // Gunakan Auth baru untuk Drive & Admin
     const driveService = google.drive({ version: 'v3', auth: jwtClient })
     const adminService = google.admin({ version: 'directory_v1', auth: jwtClient })
     const processedItems = []
 
     for (const item of items) {
+      // LOGIKA GOOGLE DRIVE
       if (item.drive_url && item.drive_url.includes('drive.google.com')) {
         try {
             const fileIdMatch = item.drive_url.match(/[-\w]{25,}/)
@@ -56,9 +58,10 @@ export async function POST(req) {
                     requestBody: { role: 'reader', type: 'user', emailAddress: email_pembeli }
                 })
             }
-        } catch (err) {}
+        } catch (err) { console.error("Drive Error:", err.message) }
       }
 
+      // LOGIKA GOOGLE GROUP
       const groupEmail = item.link_categories?.group_email
       if (groupEmail) {
         try {
@@ -98,6 +101,7 @@ export async function POST(req) {
 
     return NextResponse.json({ message: 'Link order sukses', data: [transactionId] })
   } catch (error) {
+    console.error("FINAL LINK ERROR:", error);
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

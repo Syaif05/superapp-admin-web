@@ -3,6 +3,7 @@ import { google } from 'googleapis'
 import nodemailer from 'nodemailer'
 import { NextResponse } from 'next/server'
 
+// 1. Fungsi Penerjemah Kunci (Sama seperti Debug)
 const getPrivateKey = () => {
   const key = process.env.GOOGLE_PRIVATE_KEY || '';
   if (key.startsWith('LS0t')) {
@@ -16,7 +17,8 @@ const supabase = createClient(
   process.env.SUPABASE_KEY
 )
 
-// --- PERBAIKAN: GUNAKAN OBJECT CONFIG ---
+// 2. SETUP AUTH GOOGLE (FORMAT BARU: OBJECT STYLE)
+// Ini adalah kunci keberhasilan yang baru saja kita tes!
 const jwtClient = new google.auth.JWT({
   email: process.env.GOOGLE_CLIENT_EMAIL,
   key: getPrivateKey(),
@@ -42,6 +44,7 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Produk tidak ditemukan' }, { status: 404 })
     }
 
+    // Gunakan Auth yang baru
     const adminService = google.admin({ version: 'directory_v1', auth: jwtClient })
     const successList = []
 
@@ -65,6 +68,7 @@ export async function POST(req) {
       successList.push(product.name)
     }
 
+    // Setup Nodemailer dengan kunci yang benar
     const transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
@@ -84,6 +88,8 @@ export async function POST(req) {
 
     return NextResponse.json({ message: 'Order berhasil', data: [{ id: transactionId, status: 'Sent' }] })
   } catch (error) {
+    // Log error agar terbaca di Vercel Logs jika masih gagal
+    console.error("FINAL ERROR:", error);
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

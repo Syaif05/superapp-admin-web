@@ -78,7 +78,7 @@ export async function POST(req) {
             type: 'OAuth2',
             user: process.env.GOOGLE_ADMIN_EMAIL,
             serviceClient: process.env.GOOGLE_CLIENT_EMAIL,
-            privateKey: (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+            privateKey: getPrivateKey(),
         }
     })
 

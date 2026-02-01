@@ -74,14 +74,15 @@ export async function POST(req) {
       processedItems.push(item.name)
     }
 
-    // Email
     const transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
             type: 'OAuth2',
             user: process.env.GOOGLE_ADMIN_EMAIL,
             serviceClient: process.env.GOOGLE_CLIENT_EMAIL,
-            privateKey: (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+            
+            // ✅ Ubah jadi ini:
+            privateKey: getPrivateKey(), 
         }
     })
 

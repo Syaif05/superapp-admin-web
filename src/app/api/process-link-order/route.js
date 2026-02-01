@@ -45,14 +45,42 @@ const jwtClient = new google.auth.JWT({
   subject: process.env.GOOGLE_ADMIN_EMAIL
 });
 
+// --- TEMPLATE ITEM (REPEATER) ---
+// Ini adalah desain kartu produk yang Anda kirimkan. 
+// Backend akan mengisinya berulang-ulang sesuai jumlah item.
+const generateItemHtml = (name, mainUrl, driveUrl) => {
+    return `
+    <div class="item-card">
+        <div class="item-header">
+            <span class="item-title">🎮 ${name}</span>
+            <span class="item-badge">ITEM</span>
+        </div>
+        <table class="btn-grid">
+            <tr>
+                <td class="btn-cell">
+                    <a href="${mainUrl || '#'}" class="btn-server">
+                        ⬇️ Server Utama
+                    </a>
+                </td>
+                <td class="btn-cell">
+                    <a href="${driveUrl || '#'}" class="btn-drive">
+                        📂 Google Drive
+                    </a>
+                </td>
+            </tr>
+        </table>
+    </div>`;
+};
+
 export async function POST(req) {
   try {
     const { email_pembeli, item_ids } = await req.json()
     const transactionId = `LINK-${Date.now()}`
 
+    // 1. Ambil Item beserta Kategori-nya
     const { data: items } = await supabase
       .from('link_items')
-      .select('*, link_categories(name, group_email)')
+      .select('*, link_categories(id, name, group_email, email_subject, email_body)')
       .in('id', item_ids)
 
     if (!items || items.length === 0) {
@@ -63,94 +91,117 @@ export async function POST(req) {
     const adminService = google.admin({ version: 'directory_v1', auth: jwtClient })
     const gmailService = google.gmail({ version: 'v1', auth: jwtClient })
     
-    const processedItems = []
-    const responseData = []
-
+    // 2. KELOMPOKKAN ITEM BERDASARKAN KATEGORI
+    // Agar jika beli 3 game PS1, cuma dikirim 1 Email Kategori PS1.
+    const groupedItems = {};
+    
     for (const item of items) {
-      // 1. Google Drive
-      if (item.drive_url && item.drive_url.includes('drive.google.com')) {
-        try {
-            const fileIdMatch = item.drive_url.match(/[-\w]{25,}/)
-            if (fileIdMatch) {
-                await driveService.permissions.create({
-                    fileId: fileIdMatch[0],
-                    requestBody: { role: 'reader', type: 'user', emailAddress: email_pembeli }
-                })
-            }
-        } catch (err) { console.error("Drive Error:", err.message) }
-      }
-
-      // 2. Google Group
-      const groupEmail = item.link_categories?.group_email
-      if (groupEmail) {
-        try {
-            await adminService.members.insert({
-                groupKey: groupEmail,
-                requestBody: { email: email_pembeli, role: 'MEMBER' }
-            })
-        } catch (e) {}
-      }
-
-      // 3. Database
-      await supabase.from('history').insert({
-        buyer_email: email_pembeli,
-        product_name: item.name,
-        product_code: 'LINK',
-        generated_id: transactionId,
-        status: 'SUCCESS'
-      })
-      processedItems.push(item)
-      
-      // 4. Data Balikan ke HP (Fix Null)
-      responseData.push({
-          id: transactionId,
-          status: 'Sent',
-          product_name: item.name,     // <-- Fix nama produk null
-          product_code: 'LINK AKSES'    // <-- Fix kode akses
-      })
+       const catId = item.category_id;
+       if (!groupedItems[catId]) {
+           groupedItems[catId] = {
+               category: item.link_categories,
+               items: []
+           };
+       }
+       groupedItems[catId].items.push(item);
     }
 
-    // --- KIRIM EMAIL ---
-    try {
-        const itemNames = processedItems.map(p => p.name).join(', ');
-        const emailSubject = `Akses Terkirim: ${itemNames}`;
+    const responseData = []
 
-        const emailContent = `
-          <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px;">
-            <div style="background-color: #007bff; padding: 20px; color: white; text-align: center; border-radius: 8px 8px 0 0;">
-              <h2>Akses Diberikan!</h2>
-            </div>
-            <div style="border: 1px solid #ddd; padding: 20px; border-radius: 0 0 8px 8px;">
-              <p>Akses untuk item berikut telah dibuka:</p>
-              <ul>
-                ${processedItems.map(n => `<li><b>${n.name}</b></li>`).join('')}
-              </ul>
-              <p style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #007bff;">
-                Silakan cek menu <b>"Dibagikan kepada saya" (Shared with me)</b> di Google Drive Anda.
-              </p>
-              <p>ID Transaksi: <code>${transactionId}</code></p>
-            </div>
-          </div>
-        `;
+    // 3. PROSES PER KATEGORI (Bukan Per Item)
+    for (const catId in groupedItems) {
+        const group = groupedItems[catId];
+        const categoryData = group.category;
+        const itemList = group.items;
 
-        const rawMessage = createEmailMessage(email_pembeli, emailSubject, emailContent);
+        // A. Proses Izin Drive & Group (Tetap dilakukan per item/kategori)
+        // Invite ke Grup Kategori (Cukup sekali per kategori)
+        if (categoryData.group_email) {
+            try {
+                await adminService.members.insert({
+                    groupKey: categoryData.group_email,
+                    requestBody: { email: email_pembeli, role: 'MEMBER' }
+                })
+            } catch (e) {}
+        }
 
-        await gmailService.users.messages.send({
-            userId: 'me',
-            requestBody: { raw: rawMessage }
-        });
+        // Share File Drive (Per Item)
+        for (const item of itemList) {
+            if (item.drive_url && item.drive_url.includes('drive.google.com')) {
+                try {
+                    const fileIdMatch = item.drive_url.match(/[-\w]{25,}/)
+                    if (fileIdMatch) {
+                        await driveService.permissions.create({
+                            fileId: fileIdMatch[0],
+                            requestBody: { role: 'reader', type: 'user', emailAddress: email_pembeli }
+                        })
+                    }
+                } catch (err) {}
+            }
+            
+            // Catat History
+            await supabase.from('history').insert({
+                buyer_email: email_pembeli,
+                product_name: item.name,
+                product_code: 'LINK',
+                generated_id: transactionId,
+                status: 'SUCCESS'
+            })
+            
+            responseData.push({
+                id: transactionId,
+                status: 'Sent',
+                product_name: item.name,
+                product_code: 'LINK'
+            })
+        }
 
-    } catch (emailError) {
-        console.error("Gagal kirim email link:", emailError.message);
+        // B. RAKIT EMAIL HTML
+        try {
+            // 1. Generate HTML untuk setiap item (Repeater)
+            const itemsHtml = itemList.map(item => 
+                generateItemHtml(item.name, item.main_url, item.drive_url)
+            ).join('');
+
+            // 2. Ambil Template Wrapper Kategori
+            // Jika kosong di DB, pakai default yang sangat sederhana (User disarankan isi DB)
+            let subjectTpl = categoryData.email_subject || `Akses: {{category_name}}`;
+            let bodyTpl = categoryData.email_body || `
+                <html><body>
+                    <h1>Akses {{category_name}}</h1>
+                    <div style="padding: 20px;">
+                        {{items_list}}
+                    </div>
+                </body></html>
+            `;
+
+            // 3. Gabungkan Wrapper + Items
+            const finalSubject = subjectTpl.replace(/{{category_name}}/g, categoryData.name);
+            
+            const finalHtml = bodyTpl
+                .replace(/{{category_name}}/g, categoryData.name)
+                .replace(/{{transaction_id}}/g, transactionId)
+                .replace(/{{buyer_email}}/g, email_pembeli)
+                .replace(/{{items_list}}/g, itemsHtml); // <-- DISINI KUNCINYA
+
+            // 4. Kirim Email
+            const rawMessage = createEmailMessage(email_pembeli, finalSubject, finalHtml);
+            await gmailService.users.messages.send({
+                userId: 'me',
+                requestBody: { raw: rawMessage }
+            });
+
+        } catch (emailError) {
+            console.error("Gagal kirim email kategori:", emailError);
+        }
     }
 
     return NextResponse.json({ 
         message: 'Link order sukses', 
-        data: responseData // <-- Kirim data lengkap ke HP
+        data: responseData 
     })
 
   } catch (error) {
-    console.error("FINAL LINK ERROR:", error);
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

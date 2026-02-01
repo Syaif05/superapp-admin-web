@@ -16,17 +16,17 @@ const supabase = createClient(
   process.env.SUPABASE_KEY
 )
 
-const jwtClient = new google.auth.JWT(
-  process.env.GOOGLE_CLIENT_EMAIL,
-  null,
-  getPrivateKey(),
-  [
+// --- PERBAIKAN: GUNAKAN OBJECT CONFIG ---
+const jwtClient = new google.auth.JWT({
+  email: process.env.GOOGLE_CLIENT_EMAIL,
+  key: getPrivateKey(),
+  scopes: [
     'https://www.googleapis.com/auth/admin.directory.group',
     'https://www.googleapis.com/auth/gmail.send',
     'https://www.googleapis.com/auth/drive'
   ],
-  process.env.GOOGLE_ADMIN_EMAIL
-)
+  subject: process.env.GOOGLE_ADMIN_EMAIL
+});
 
 export async function POST(req) {
   try {

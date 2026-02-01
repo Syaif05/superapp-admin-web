@@ -1,7 +1,6 @@
 import { google } from 'googleapis';
 import { NextResponse } from 'next/server';
 
-// Fungsi dekode kunci (Sama seperti di production)
 const getPrivateKey = () => {
   const key = process.env.GOOGLE_PRIVATE_KEY || '';
   if (key.startsWith('LS0t')) {
@@ -15,40 +14,34 @@ export async function GET() {
   const adminEmail = process.env.GOOGLE_ADMIN_EMAIL;
   const privateKey = getPrivateKey();
 
-  // 1. Cek Data Mentah
-  const diagnosticData = {
-    vercel_melihat_email_robot: emailRobot,
-    vercel_melihat_admin: adminEmail,
-    vercel_melihat_kunci: privateKey ? `ADA (Panjang: ${privateKey.length} karakter)` : 'KOSONG',
-    kunci_diawali_text: privateKey ? privateKey.substring(0, 25) + "..." : "NULL",
-    apakah_kunci_base64: process.env.GOOGLE_PRIVATE_KEY?.startsWith('LS0t') ? 'YA' : 'TIDAK'
-  };
-
   try {
-    // 2. Cek Koneksi Langsung (Tanpa Supabase/Nodemailer)
-    const jwtClient = new google.auth.JWT(
-      emailRobot,
-      null,
-      privateKey,
-      ['https://www.googleapis.com/auth/admin.directory.group'],
-      adminEmail
-    );
+    // --- PERBAIKAN UTAMA DI SINI ---
+    // Kita pakai format OBJECT agar tidak salah baca posisi
+    const jwtClient = new google.auth.JWT({
+      email: emailRobot,
+      key: privateKey,
+      scopes: ['https://www.googleapis.com/auth/admin.directory.group'],
+      subject: adminEmail
+    });
 
+    // Tes buat token (authorize)
     await jwtClient.authorize();
     
     return NextResponse.json({
-      status: "✅ SUKSES",
-      pesan: "Koneksi Google Berhasil! Masalah bukan di Auth.",
-      diagnosa: diagnosticData
+      status: "✅ SUKSES BESAR",
+      pesan: "Koneksi Google BERHASIL! Identitas & Kunci Valid.",
+      detail: {
+        robot: emailRobot,
+        admin: adminEmail,
+        kunci_ok: "Ya, Google menerima kunci ini."
+      }
     });
 
   } catch (error) {
     return NextResponse.json({
       status: "❌ GAGAL",
-      error_code: error.code,
       error_message: error.message,
-      analisa_saya: "Vercel menggunakan kombinasi data di bawah ini yang DITOLAK Google:",
-      diagnosa: diagnosticData
+      analisa: "Masih ada error lain. Cek pesan di atas."
     }, { status: 500 });
   }
 }

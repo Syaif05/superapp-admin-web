@@ -3,7 +3,6 @@ import { google } from 'googleapis'
 import nodemailer from 'nodemailer'
 import { NextResponse } from 'next/server'
 
-// --- FUNGSI PEMBERSIH KUNCI ---
 const getPrivateKey = () => {
   const key = process.env.GOOGLE_PRIVATE_KEY || '';
   if (key.startsWith('LS0t')) {
@@ -20,7 +19,7 @@ const supabase = createClient(
 const jwtClient = new google.auth.JWT(
   process.env.GOOGLE_CLIENT_EMAIL,
   null,
-  getPrivateKey(), // <--- Update
+  getPrivateKey(),
   [
     'https://www.googleapis.com/auth/admin.directory.group',
     'https://www.googleapis.com/auth/gmail.send',
@@ -57,7 +56,7 @@ export async function POST(req) {
                     requestBody: { role: 'reader', type: 'user', emailAddress: email_pembeli }
                 })
             }
-        } catch (err) { console.error(err) }
+        } catch (err) {}
       }
 
       const groupEmail = item.link_categories?.group_email
@@ -80,14 +79,13 @@ export async function POST(req) {
       processedItems.push(item.name)
     }
 
-    // --- SETUP EMAIL ---
     const transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
             type: 'OAuth2',
             user: process.env.GOOGLE_ADMIN_EMAIL,
             serviceClient: process.env.GOOGLE_CLIENT_EMAIL,
-            privateKey: getPrivateKey(), // <--- Update
+            privateKey: getPrivateKey(),
         }
     })
 
@@ -100,7 +98,6 @@ export async function POST(req) {
 
     return NextResponse.json({ message: 'Link order sukses', data: [transactionId] })
   } catch (error) {
-    console.error('SERVER LINK ERROR:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

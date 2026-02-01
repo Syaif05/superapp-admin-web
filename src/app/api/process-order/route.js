@@ -3,14 +3,11 @@ import { google } from 'googleapis'
 import nodemailer from 'nodemailer'
 import { NextResponse } from 'next/server'
 
-// --- FUNGSI PEMBERSIH KUNCI (Wajib Ada) ---
 const getPrivateKey = () => {
   const key = process.env.GOOGLE_PRIVATE_KEY || '';
   if (key.startsWith('LS0t')) {
-    // Jika Base64, decode dulu
     return Buffer.from(key, 'base64').toString('utf-8');
   }
-  // Jika teks biasa, rapikan baris baru
   return key.replace(/\\n/g, '\n');
 };
 
@@ -22,7 +19,7 @@ const supabase = createClient(
 const jwtClient = new google.auth.JWT(
   process.env.GOOGLE_CLIENT_EMAIL,
   null,
-  getPrivateKey(), // <--- Pakai fungsi ini
+  getPrivateKey(),
   [
     'https://www.googleapis.com/auth/admin.directory.group',
     'https://www.googleapis.com/auth/gmail.send',
@@ -68,14 +65,13 @@ export async function POST(req) {
       successList.push(product.name)
     }
 
-    // --- SETUP EMAIL DENGAN KUNCI YANG BENAR ---
     const transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
             type: 'OAuth2',
             user: process.env.GOOGLE_ADMIN_EMAIL,
             serviceClient: process.env.GOOGLE_CLIENT_EMAIL,
-            privateKey: getPrivateKey(), // <--- Pakai fungsi ini juga!
+            privateKey: getPrivateKey(),
         }
     })
 
@@ -88,7 +84,6 @@ export async function POST(req) {
 
     return NextResponse.json({ message: 'Order berhasil', data: [{ id: transactionId, status: 'Sent' }] })
   } catch (error) {
-    console.error('SERVER ERROR:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

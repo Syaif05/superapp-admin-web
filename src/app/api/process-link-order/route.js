@@ -3,6 +3,17 @@ import { google } from 'googleapis'
 import nodemailer from 'nodemailer'
 import { NextResponse } from 'next/server'
 
+// --- HELPER DECODE BASE64 ---
+const getPrivateKey = () => {
+  const encodedKey = process.env.GOOGLE_PRIVATE_KEY || '';
+  // Jika kunci diawali "LS0t", berarti itu Base64. Kita decode.
+  if (encodedKey.startsWith('LS0t')) {
+    return Buffer.from(encodedKey, 'base64').toString('utf-8');
+  }
+  // Jika tidak, berarti masih format lama (Raw Text). Pakai langsung.
+  return encodedKey.replace(/\\n/g, '\n');
+};
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_KEY
@@ -11,7 +22,7 @@ const supabase = createClient(
 const jwtClient = new google.auth.JWT(
   process.env.GOOGLE_CLIENT_EMAIL,
   null,
-  (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+  getPrivateKey(),
   [
     'https://www.googleapis.com/auth/admin.directory.group',
     'https://www.googleapis.com/auth/gmail.send',

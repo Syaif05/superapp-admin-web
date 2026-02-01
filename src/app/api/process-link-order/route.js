@@ -3,15 +3,13 @@ import { google } from 'googleapis'
 import nodemailer from 'nodemailer'
 import { NextResponse } from 'next/server'
 
-// --- HELPER DECODE BASE64 ---
+// --- FUNGSI PEMBERSIH KUNCI ---
 const getPrivateKey = () => {
-  const encodedKey = process.env.GOOGLE_PRIVATE_KEY || '';
-  // Jika kunci diawali "LS0t", berarti itu Base64. Kita decode.
-  if (encodedKey.startsWith('LS0t')) {
-    return Buffer.from(encodedKey, 'base64').toString('utf-8');
+  const key = process.env.GOOGLE_PRIVATE_KEY || '';
+  if (key.startsWith('LS0t')) {
+    return Buffer.from(key, 'base64').toString('utf-8');
   }
-  // Jika tidak, berarti masih format lama (Raw Text). Pakai langsung.
-  return encodedKey.replace(/\\n/g, '\n');
+  return key.replace(/\\n/g, '\n');
 };
 
 const supabase = createClient(
@@ -22,7 +20,7 @@ const supabase = createClient(
 const jwtClient = new google.auth.JWT(
   process.env.GOOGLE_CLIENT_EMAIL,
   null,
-  getPrivateKey(),
+  getPrivateKey(), // <--- Update
   [
     'https://www.googleapis.com/auth/admin.directory.group',
     'https://www.googleapis.com/auth/gmail.send',
@@ -50,7 +48,6 @@ export async function POST(req) {
     const processedItems = []
 
     for (const item of items) {
-      // Akses Drive
       if (item.drive_url && item.drive_url.includes('drive.google.com')) {
         try {
             const fileIdMatch = item.drive_url.match(/[-\w]{25,}/)
@@ -62,8 +59,7 @@ export async function POST(req) {
             }
         } catch (err) { console.error(err) }
       }
-      
-      // Masuk Grup
+
       const groupEmail = item.link_categories?.group_email
       if (groupEmail) {
         try {
@@ -74,7 +70,6 @@ export async function POST(req) {
         } catch (e) {}
       }
 
-      // History
       await supabase.from('history').insert({
         buyer_email: email_pembeli,
         product_name: item.name,
@@ -85,15 +80,14 @@ export async function POST(req) {
       processedItems.push(item.name)
     }
 
+    // --- SETUP EMAIL ---
     const transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
             type: 'OAuth2',
             user: process.env.GOOGLE_ADMIN_EMAIL,
             serviceClient: process.env.GOOGLE_CLIENT_EMAIL,
-            
-            // ✅ Ubah jadi ini:
-            privateKey: getPrivateKey(), 
+            privateKey: getPrivateKey(), // <--- Update
         }
     })
 

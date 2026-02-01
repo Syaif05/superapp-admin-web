@@ -3,15 +3,15 @@ import { google } from 'googleapis'
 import nodemailer from 'nodemailer'
 import { NextResponse } from 'next/server'
 
-// --- HELPER DECODE BASE64 ---
+// --- FUNGSI PEMBERSIH KUNCI (Wajib Ada) ---
 const getPrivateKey = () => {
-  const encodedKey = process.env.GOOGLE_PRIVATE_KEY || '';
-  // Jika kunci diawali "LS0t", berarti itu Base64. Kita decode.
-  if (encodedKey.startsWith('LS0t')) {
-    return Buffer.from(encodedKey, 'base64').toString('utf-8');
+  const key = process.env.GOOGLE_PRIVATE_KEY || '';
+  if (key.startsWith('LS0t')) {
+    // Jika Base64, decode dulu
+    return Buffer.from(key, 'base64').toString('utf-8');
   }
-  // Jika tidak, berarti masih format lama (Raw Text). Pakai langsung.
-  return encodedKey.replace(/\\n/g, '\n');
+  // Jika teks biasa, rapikan baris baru
+  return key.replace(/\\n/g, '\n');
 };
 
 const supabase = createClient(
@@ -22,7 +22,7 @@ const supabase = createClient(
 const jwtClient = new google.auth.JWT(
   process.env.GOOGLE_CLIENT_EMAIL,
   null,
-  getPrivateKey(), // <--- PANGGIL FUNGSI INI
+  getPrivateKey(), // <--- Pakai fungsi ini
   [
     'https://www.googleapis.com/auth/admin.directory.group',
     'https://www.googleapis.com/auth/gmail.send',
@@ -36,7 +36,6 @@ export async function POST(req) {
     const { email_pembeli, product_ids } = await req.json()
     const transactionId = `TRX-${Date.now()}`
     
-    // 1. Ambil Data Produk
     const { data: products } = await supabase
       .from('products')
       .select('*')
@@ -49,9 +48,7 @@ export async function POST(req) {
     const adminService = google.admin({ version: 'directory_v1', auth: jwtClient })
     const successList = []
 
-    // 2. Proses Item
     for (const product of products) {
-      // Masuk Grup
       if (product.group_email) {
         try {
           await adminService.members.insert({
@@ -60,7 +57,7 @@ export async function POST(req) {
           })
         } catch (err) {} 
       }
-      // Simpan History
+      
       await supabase.from('history').insert({
         buyer_email: email_pembeli,
         product_name: product.name,
@@ -71,14 +68,14 @@ export async function POST(req) {
       successList.push(product.name)
     }
 
-    // 3. Kirim Email
+    // --- SETUP EMAIL DENGAN KUNCI YANG BENAR ---
     const transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
             type: 'OAuth2',
             user: process.env.GOOGLE_ADMIN_EMAIL,
             serviceClient: process.env.GOOGLE_CLIENT_EMAIL,
-            privateKey: getPrivateKey(),
+            privateKey: getPrivateKey(), // <--- Pakai fungsi ini juga!
         }
     })
 

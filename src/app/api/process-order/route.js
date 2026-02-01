@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { google } from 'googleapis'
 import { NextResponse } from 'next/server'
 
-// Helper: Decode Kunci
+// --- HELPER 1: DECODE PRIVATE KEY ---
 const getPrivateKey = () => {
   const key = process.env.GOOGLE_PRIVATE_KEY || '';
   if (key.startsWith('LS0t')) {
@@ -11,7 +11,7 @@ const getPrivateKey = () => {
   return key.replace(/\\n/g, '\n');
 };
 
-// Helper: Format Email Raw
+// --- HELPER 2: FORMAT EMAIL RAW ---
 const createEmailMessage = (to, subject, htmlBody) => {
   const adminEmail = process.env.GOOGLE_ADMIN_EMAIL;
   const utf8Subject = `=?utf-8?B?${Buffer.from(subject).toString('base64')}?=`;
@@ -31,7 +31,7 @@ const createEmailMessage = (to, subject, htmlBody) => {
     .replace(/=+$/, '');
 };
 
-// Helper Baru: Ambil HTML dari URL jika body kosong
+// --- HELPER 3: AMBIL HTML DARI URL (YANG SEMPAT HILANG) ---
 const fetchTemplateHtml = async (url) => {
     if (!url) return null;
     try {
@@ -43,11 +43,13 @@ const fetchTemplateHtml = async (url) => {
     return null;
 }
 
+// --- SETUP SUPABASE ---
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_KEY
 )
 
+// --- SETUP GOOGLE AUTH ---
 const jwtClient = new google.auth.JWT({
   email: process.env.GOOGLE_CLIENT_EMAIL,
   key: getPrivateKey(),
@@ -62,9 +64,8 @@ const jwtClient = new google.auth.JWT({
 export async function POST(req) {
   try {
     const { email_pembeli, product_ids } = await req.json()
-    const transactionId = `TRX-${Date.now()}`
     
-    // Ambil produk dan data template yang ada
+    // 1. AMBIL DATA PRODUK DARI DATABASE
     const { data: products } = await supabase
       .from('products')
       .select('*')
@@ -74,46 +75,59 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Produk tidak ditemukan' }, { status: 404 })
     }
 
+    // 2. GENERATE ID TRANSAKSI (CUSTOM FORMAT)
+    // Logika: Pembeli_[KODE][3_ANGKA_ACAK] -> Contoh: Pembeli_DF231
+    const firstProductCode = products[0].product_code || 'TRX'; 
+    const randomNum = Math.floor(100 + Math.random() * 900); // 3 Angka Acak
+    const transactionId = `Pembeli_${firstProductCode}${randomNum}`;
+
+    // Inisialisasi Service Google
     const adminService = google.admin({ version: 'directory_v1', auth: jwtClient })
     const gmailService = google.gmail({ version: 'v1', auth: jwtClient })
     
     const responseData = []
 
-    // --- LOOPING PRODUK ---
+    // 3. PROSES SETIAP PRODUK
     for (const product of products) {
-      // 1. Masukkan ke Group (Jika ada)
+      
+      // A. Masukkan ke Google Group (Jika ada)
       if (product.group_email) {
         try {
           await adminService.members.insert({
             groupKey: product.group_email,
             requestBody: { email: email_pembeli, role: product.role || 'MEMBER' }
           })
-        } catch (err) {} 
+        } catch (err) {
+            // Abaikan error jika member sudah ada
+            console.log(`Info Group: ${err.message}`);
+        } 
       }
       
-      // 2. Simpan History
-      await supabase.from('history').insert({
+      // B. Simpan History (PENTING: Gunakan ID Baru)
+      const { error: historyError } = await supabase.from('history').insert({
         buyer_email: email_pembeli,
         product_name: product.name,
         product_code: product.product_code,
-        generated_id: transactionId,
+        generated_id: transactionId, // <-- ID SUDAH BENAR DISINI
         status: 'SUCCESS'
       })
+
+      if (historyError) console.error("History Error:", historyError);
       
-      // Data untuk Balikan ke HP
+      // C. Siapkan Data Balikan ke HP
       responseData.push({
-          id: transactionId,
+          id: transactionId, // <-- HP menerima 'Pembeli_DF231'
           status: 'Sent',
           product_name: product.name,
           product_code: product.product_code
       })
 
-      // 3. LOGIKA TEMPLATE CERDAS (DB -> URL -> Default)
+      // D. Kirim Email (Logika Template Lengkap)
       try {
         let subjectTpl = product.email_subject
         let bodyTpl = product.email_body
 
-        // JIKA DI DB KOSONG, AMBIL DARI URL (Sesuai database lama Anda)
+        // JIKA BODY KOSONG, AMBIL DARI URL STORAGE (Fitur Lama Dikembalikan)
         if (!bodyTpl && product.template_url) {
             console.log(`Mengambil template dari URL untuk: ${product.name}`);
             bodyTpl = await fetchTemplateHtml(product.template_url);
@@ -121,9 +135,9 @@ export async function POST(req) {
 
         // Fallback Default jika semua kosong
         if (!subjectTpl) subjectTpl = `Pesanan: {{product_name}}`;
-        if (!bodyTpl) bodyTpl = `<div style="font-family: Arial; padding: 20px;"><h2>Terima Kasih</h2><p>Anda telah membeli <b>{{product_name}}</b></p><p>Kode Akses: <b>{{product_code}}</b></p></div>`;
+        if (!bodyTpl) bodyTpl = `<div style="font-family: Arial;"><h2>Terima Kasih</h2><p>Kode: <b>{{transaction_id}}</b></p></div>`;
 
-        // Ganti Variabel
+        // Replace Variabel
         const finalSubject = subjectTpl
             .replace(/{{product_name}}/g, product.name)
             .replace(/{{transaction_id}}/g, transactionId)
@@ -134,7 +148,7 @@ export async function POST(req) {
             .replace(/{{buyer_email}}/g, email_pembeli)
             .replace(/{{transaction_id}}/g, transactionId)
 
-        // Kirim
+        // Kirim via Gmail API
         const rawMessage = createEmailMessage(email_pembeli, finalSubject, finalHtml);
         await gmailService.users.messages.send({
             userId: 'me',
@@ -146,12 +160,14 @@ export async function POST(req) {
       }
     }
 
+    // 4. RESPONSE SUKSES
     return NextResponse.json({ 
         message: 'Order berhasil', 
         data: responseData 
     })
 
   } catch (error) {
+    console.error("SERVER ERROR:", error);
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

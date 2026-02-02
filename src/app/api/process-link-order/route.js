@@ -75,7 +75,25 @@ const generateItemHtml = (name, mainUrl, driveUrl) => {
 export async function POST(req) {
   try {
     const { email_pembeli, item_ids } = await req.json()
-    const transactionId = `LINK-${Date.now()}`
+    
+    // GENERATE ID TRANSAKSI LINK
+    // > 1 Item: LINK-M[Random]
+    // 1 Item: LINK-[10_Random]
+    let transactionId = '';
+    const randomStr = (length) => {
+       const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+       let result = '';
+       for ( let i = 0; i < length; i++ ) {
+          result += chars.charAt(Math.floor(Math.random() * chars.length));
+       }
+       return result;
+    }
+
+    if (item_ids.length > 1) {
+       transactionId = `LINK-M${randomStr(8)}`; // M + 8 Random
+    } else {
+       transactionId = `LINK-${randomStr(10)}`; // 10 Random
+    }
 
     // 1. Ambil Item beserta Kategori-nya
     const { data: items } = await supabase
@@ -139,14 +157,7 @@ export async function POST(req) {
                 } catch (err) {}
             }
             
-            // Catat History
-            await supabase.from('history').insert({
-                buyer_email: email_pembeli,
-                product_name: item.name,
-                product_code: 'LINK',
-                generated_id: transactionId,
-                status: 'SUCCESS'
-            })
+
             
             responseData.push({
                 id: transactionId,

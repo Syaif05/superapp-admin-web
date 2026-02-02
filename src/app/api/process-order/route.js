@@ -75,10 +75,10 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Produk tidak ditemukan' }, { status: 404 })
     }
 
-    // 2. GENERATE ID TRANSAKSI (CUSTOM FORMAT)
-    // Logika: Pembeli_[KODE][3_ANGKA_ACAK] -> Contoh: Pembeli_DF231
+    // 2. GENERATE ID TRANSAKSI (CUSTOM FORMAT 7 DIGIT)
+    // Logika: Pembeli_[KODE][7_ANGKA_ACAK] -> Contoh: Pembeli_DF6374390
     const firstProductCode = products[0].product_code || 'TRX'; 
-    const randomNum = Math.floor(100 + Math.random() * 900); // 3 Angka Acak
+    const randomNum = Math.floor(1000000 + Math.random() * 9000000); // 7 Angka Acak
     const transactionId = `Pembeli_${firstProductCode}${randomNum}`;
 
     // Inisialisasi Service Google
@@ -103,16 +103,7 @@ export async function POST(req) {
         } 
       }
       
-      // B. Simpan History (PENTING: Gunakan ID Baru)
-      const { error: historyError } = await supabase.from('history').insert({
-        buyer_email: email_pembeli,
-        product_name: product.name,
-        product_code: product.product_code,
-        generated_id: transactionId, // <-- ID SUDAH BENAR DISINI
-        status: 'SUCCESS'
-      })
 
-      if (historyError) console.error("History Error:", historyError);
       
       // C. Siapkan Data Balikan ke HP
       responseData.push({
@@ -158,6 +149,27 @@ export async function POST(req) {
       } catch (e) {
           console.error(`Gagal kirim email ${product.name}:`, e.message)
       }
+      await gmailService.users.messages.send({
+        userId: 'me',
+        requestBody: { raw: rawMessage }
+      })
+    }
+
+    // 4. SIMPAN HISTORY (SATU KALI SAJA UNTUK SEMUA PRODUK)
+    // Gabungkan nama produk jika membeli banyak
+    const productNames = products.map(p => p.name).join(', ');
+    const productCountInfo = products.length > 1 ? ` (${products.length} items)` : '';
+
+    const { error: historyError } = await supabase.from('history').insert({
+      buyer_email: email_pembeli,
+      product_name: productNames + productCountInfo,
+      product_code: firstProductCode, 
+      generated_id: transactionId,
+      status: 'SUCCESS'
+    })
+
+    if (historyError) {
+      console.error("History Error:", historyError)
     }
 
     // 4. RESPONSE SUKSES

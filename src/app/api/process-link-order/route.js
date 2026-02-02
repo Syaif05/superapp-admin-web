@@ -207,6 +207,22 @@ export async function POST(req) {
         }
     }
 
+    } // End Loop Category
+
+    // 4. SIMPAN HISTORY (SATU KALI SAJA)
+    const itemNames = items.map(i => i.name).join(', ');
+    const itemCountInfo = items.length > 1 ? ` (${items.length} items)` : '';
+
+    const { error: historyError } = await supabase.from('history').insert({
+       buyer_email: email_pembeli,
+       product_name: itemNames + itemCountInfo,
+       product_code: 'LINK',
+       generated_id: transactionId,
+       status: 'SUCCESS'
+    })
+
+    if (historyError) console.error("History Error:", historyError);
+
     return NextResponse.json({ 
         message: 'Link order sukses', 
         data: responseData 

@@ -34,6 +34,15 @@ export default function Home() {
     fetchData()
   }
 
+  async function handleDeleteHistory(id) {
+    const { error } = await supabase.from('history').delete().eq('id', id)
+    if (error) {
+      alert('Gagal hapus history: ' + error.message)
+    } else {
+      fetchData()
+    }
+  }
+
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -65,7 +74,13 @@ export default function Home() {
           </div>
         ) : (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {activeTab === 'dashboard' && <DashboardView products={products} histories={histories} />}
+            {activeTab === 'dashboard' && (
+               <DashboardView 
+                 products={products} 
+                 histories={histories} 
+                 onDeleteHistory={handleDeleteHistory}
+               />
+            )}
             
             {activeTab === 'products' && (
               <ProductListView 

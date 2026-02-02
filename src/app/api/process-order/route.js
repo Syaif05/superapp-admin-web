@@ -149,10 +149,7 @@ export async function POST(req) {
       } catch (e) {
           console.error(`Gagal kirim email ${product.name}:`, e.message)
       }
-      await gmailService.users.messages.send({
-        userId: 'me',
-        requestBody: { raw: rawMessage }
-      })
+
     }
 
     // 4. SIMPAN HISTORY (SATU KALI SAJA UNTUK SEMUA PRODUK)

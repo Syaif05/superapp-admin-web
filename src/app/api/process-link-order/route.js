@@ -207,7 +207,7 @@ export async function POST(req) {
         }
     }
 
-    } // End Loop Category
+
 
     // 4. SIMPAN HISTORY (SATU KALI SAJA)
     const itemNames = items.map(i => i.name).join(', ');

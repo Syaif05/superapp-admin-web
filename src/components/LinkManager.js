@@ -1,7 +1,6 @@
-'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Folder, ArrowLeft, Trash2, Palette } from 'lucide-react' // Tambah Palette
+import { Folder, ArrowLeft, Trash2, Palette, Upload, Download, FileSpreadsheet } from 'lucide-react'
 import Link from 'next/link'
 
 export default function LinkManager() {
@@ -10,6 +9,10 @@ export default function LinkManager() {
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(false)
+
+  // CSV State
+  const fileInputRef = useRef(null)
+  const [isUploading, setIsUploading] = useState(false)
 
   // Form States
   const [catForm, setCatForm] = useState({ name: '', email: '' })
@@ -66,6 +69,65 @@ export default function LinkManager() {
     fetchItems(selectedCategory.id)
   }
 
+  // --- CSV ACTIONS ---
+  const downloadTemplate = () => {
+    const csvContent = "name,main_url,drive_url\nContoh Item,https://server.com/file,https://drive.google.com/file"
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement("a")
+    link.href = URL.createObjectURL(blob)
+    link.download = "template_link_produk.csv"
+    link.click()
+  }
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    setIsUploading(true)
+    const reader = new FileReader()
+    
+    reader.onload = async (event) => {
+      try {
+        const text = event.target.result
+        const lines = text.split('\n')
+        const newItems = []
+
+        // Skip header (index 0)
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim()
+          if (!line) continue
+          
+          const cols = line.split(',')
+          if (cols.length < 1) continue 
+
+          newItems.push({
+            category_id: selectedCategory.id,
+            name: cols[0]?.trim(),
+            main_url: cols[1]?.trim() || '',
+            drive_url: cols[2]?.trim() || ''
+          })
+        }
+
+        if (newItems.length > 0) {
+          const { error } = await supabase.from('link_items').insert(newItems)
+          if (error) throw error
+          alert(`Berhasil import ${newItems.length} item ke ${selectedCategory.name}!`)
+          fetchItems(selectedCategory.id)
+        } else {
+          alert("File kosong atau format salah!")
+        }
+
+      } catch (err) {
+        alert("Gagal import: " + err.message)
+      } finally {
+        setIsUploading(false)
+        if(fileInputRef.current) fileInputRef.current.value = ''
+      }
+    }
+    
+    reader.readAsText(file)
+  }
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
       {view === 'categories' ? (
@@ -107,7 +169,6 @@ export default function LinkManager() {
 
                         {/* Footer: Tombol Hapus & Edit Template */}
                         <div className="pt-4 border-t border-slate-50 flex gap-2">
-                            {/* TOMBOL EDIT TEMPLATE (PINDAH KE SINI) */}
                             <Link 
                                 href={`/links/template/${cat.id}`}
                                 className="flex-1 flex items-center justify-center gap-2 text-xs font-bold text-indigo-600 bg-indigo-50 py-2 rounded-lg hover:bg-indigo-100 transition"
@@ -127,13 +188,43 @@ export default function LinkManager() {
       ) : (
         // --- TAMPILAN ITEMS ---
         <div className="space-y-6">
-            <div className="flex items-center gap-4 mb-6">
-                <button onClick={() => setView('categories')} className="p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-600 transition">
-                    <ArrowLeft size={20} />
-                </button>
-                <div>
-                    <h2 className="text-2xl font-bold text-slate-800">Isi Folder: {selectedCategory?.name}</h2>
-                    <p className="text-slate-500 text-sm">Kelola link produk di dalam kategori ini</p>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                <div className="flex items-center gap-4">
+                    <button onClick={() => setView('categories')} className="p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-600 transition">
+                        <ArrowLeft size={20} />
+                    </button>
+                    <div>
+                        <h2 className="text-2xl font-bold text-slate-800">Isi Folder: {selectedCategory?.name}</h2>
+                        <p className="text-slate-500 text-sm">Kelola link produk di dalam kategori ini</p>
+                    </div>
+                </div>
+
+                {/* CSV ACTIONS */}
+                <div className="flex gap-2">
+                     <button 
+                        onClick={downloadTemplate}
+                        className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 px-3 py-2 rounded-lg text-xs font-bold hover:bg-slate-50 transition"
+                     >
+                        <Download size={14} />
+                        Template
+                     </button>
+                     <div className="relative">
+                        <input 
+                           type="file" 
+                           ref={fileInputRef}
+                           accept=".csv"
+                           onChange={handleFileUpload}
+                           className="hidden"
+                        />
+                        <button 
+                           onClick={() => fileInputRef.current?.click()}
+                           disabled={isUploading}
+                           className="flex items-center gap-2 bg-green-50 text-green-700 border border-green-200 px-3 py-2 rounded-lg text-xs font-bold hover:bg-green-100 transition"
+                        >
+                           {isUploading ? <Upload size={14} className="animate-bounce" /> : <FileSpreadsheet size={14} />}
+                           {isUploading ? 'Uploading...' : 'Import CSV'}
+                        </button>
+                     </div>
                 </div>
             </div>
 
@@ -156,7 +247,7 @@ export default function LinkManager() {
                 </button>
             </form>
 
-            {/* Tabel Items (Tanpa tombol Edit Template lagi) */}
+            {/* Tabel Items */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                 <table className="w-full text-left min-w-[700px]">
                     <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold">

@@ -1,10 +1,118 @@
-'use client'
+import { useState, useRef } from 'react'
 import Link from 'next/link'
-import { Trash2, FileCode, Users, Palette } from 'lucide-react'
+import { Trash2, FileCode, Users, Palette, Upload, Download, FileSpreadsheet } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 
 export default function ProductListView({ products, onDelete, onAddNew }) {
+  const fileInputRef = useRef(null)
+  const [isUploading, setIsUploading] = useState(false)
+
+  // CSV TEMPLATE
+  const downloadTemplate = () => {
+    const csvContent = "name,product_code,group_email,role,email_subject\nContoh Produk,CODE123,group@domain.com,MEMBER,Subject Email Custom"
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement("a")
+    link.href = URL.createObjectURL(blob)
+    link.download = "template_produk.csv"
+    link.click()
+  }
+
+  // HANDLE CSV UPLOAD
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    setIsUploading(true)
+    const reader = new FileReader()
+    
+    reader.onload = async (event) => {
+      try {
+        const text = event.target.result
+        const lines = text.split('\n')
+        const newProducts = []
+
+        // Skip header (index 0), start from 1
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim()
+          if (!line) continue
+          
+          // Simple CSV Split (assuming no commas in content for now, or simple split)
+          // Format orders: name, product_code, group_email, role, email_subject
+          const cols = line.split(',')
+          if (cols.length < 2) continue // Min name & code
+
+          newProducts.push({
+            name: cols[0]?.trim(),
+            product_code: cols[1]?.trim(),
+            group_email: cols[2]?.trim(),
+            role: cols[3]?.trim() || 'MEMBER',
+            email_subject: cols[4]?.trim() || '',
+            // Default values
+            is_active: true
+          })
+        }
+
+        if (newProducts.length > 0) {
+          const { error } = await supabase.from('products').insert(newProducts)
+          if (error) throw error
+          alert(`Berhasil import ${newProducts.length} produk!`)
+          window.location.reload() // Reload simple
+        } else {
+          alert("File kosong atau format salah!")
+        }
+
+      } catch (err) {
+        alert("Gagal import: " + err.message)
+      } finally {
+        setIsUploading(false)
+        if(fileInputRef.current) fileInputRef.current.value = ''
+      }
+    }
+    
+    reader.readAsText(file)
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      
+      {/* TOOLBAR */}
+      <div className="flex flex-wrap gap-3 mb-4">
+        <button 
+          onClick={() => onAddNew()}
+          className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-slate-800 transition shadow-lg shadow-slate-900/20"
+        >
+          <span>+ Tambah Manual</span>
+        </button>
+
+        <div className="w-px h-8 bg-slate-200 mx-2 hidden md:block"></div>
+
+        <button 
+           onClick={downloadTemplate}
+           className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-xl text-sm font-bold hover:bg-slate-50 transition"
+        >
+           <Download size={16} />
+           <span>Template CSV</span>
+        </button>
+
+        <div className="relative">
+           <input 
+              type="file" 
+              ref={fileInputRef}
+              accept=".csv"
+              onChange={handleFileUpload}
+              className="hidden"
+           />
+           <button 
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="flex items-center gap-2 bg-green-50 text-green-700 border border-green-200 px-4 py-2 rounded-xl text-sm font-bold hover:bg-green-100 transition"
+           >
+              {isUploading ? <Upload size={16} className="animate-bounce"/> : <FileSpreadsheet size={16} />}
+              <span>{isUploading ? 'Mengupload...' : 'Import CSV'}</span>
+           </button>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {products.map((p) => (
           <div key={p.id} className="group bg-white rounded-2xl shadow-sm border border-slate-100 p-6 hover:shadow-md hover:border-blue-100 transition-all duration-300 relative overflow-hidden">

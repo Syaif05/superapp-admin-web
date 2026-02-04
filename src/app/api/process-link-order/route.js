@@ -49,6 +49,22 @@ const jwtClient = new google.auth.JWT({
 // Ini adalah desain kartu produk yang Anda kirimkan. 
 // Backend akan mengisinya berulang-ulang sesuai jumlah item.
 const generateItemHtml = (name, mainUrl, driveUrl) => {
+    // Logic: Render button only if URL exists
+    const btnServer = mainUrl ? `
+        <td class="btn-cell">
+            <a href="${mainUrl}" class="btn-server">
+                ⬇️ Server Utama
+            </a>
+        </td>` : '';
+
+    const btnDrive = driveUrl ? `
+        <td class="btn-cell">
+            <a href="${driveUrl}" class="btn-drive">
+                📂 Google Drive
+            </a>
+        </td>` : '';
+
+    // If both exist, show both. If one, show one.
     return `
     <div class="item-card">
         <div class="item-header">
@@ -57,16 +73,8 @@ const generateItemHtml = (name, mainUrl, driveUrl) => {
         </div>
         <table class="btn-grid">
             <tr>
-                <td class="btn-cell">
-                    <a href="${mainUrl || '#'}" class="btn-server">
-                        ⬇️ Server Utama
-                    </a>
-                </td>
-                <td class="btn-cell">
-                    <a href="${driveUrl || '#'}" class="btn-drive">
-                        📂 Google Drive
-                    </a>
-                </td>
+                ${btnServer}
+                ${btnDrive}
             </tr>
         </table>
     </div>`;

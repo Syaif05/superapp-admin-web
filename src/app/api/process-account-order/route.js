@@ -19,37 +19,58 @@ const gmailService = google.gmail({ version: 'v1', auth });
 
 export async function POST(request) {
   try {
-    const { product, email_pembeli } = await request.json()
+    const { product, email_pembeli, stock_id } = await request.json()
 
     if (!product || !product.id || !email_pembeli) {
       return new Response(JSON.stringify({ error: "Data tidak lengkap" }), { status: 400 })
     }
 
-    console.log(`[PROCESS-ACCOUNT-ORDER] Processing for ${email_pembeli}, Product: ${product.name}`)
+    console.log(`[PROCESS-ACCOUNT-ORDER] Processing for ${email_pembeli}, Product: ${product.name}, StockID: ${stock_id || 'AUTO'}`)
 
-    // 1. GET AVAILABLE STOCK (FIFO - First In First Out)
-    // We order by created_at ascending to get the oldest stock first
-    const { data: stocks, error: stockCheckError } = await supabase
-        .from('account_stocks')
-        .select('*')
-        .eq('product_id', product.id)
-        .eq('is_sold', false)
-        .order('created_at', { ascending: true })
-        .limit(1)
+    let stock;
 
-    if (stockCheckError) {
-        throw new Error("Gagal cek stok: " + stockCheckError.message)
+    if (stock_id) {
+        // 1A. GET SPECIFIC STOCK
+        const { data: specificStock, error: specificError } = await supabase
+            .from('account_stocks')
+            .select('*')
+            .eq('id', stock_id)
+            .eq('product_id', product.id)
+            .eq('is_sold', false)
+            .single()
+        
+        if (specificError || !specificStock) {
+             return new Response(JSON.stringify({ 
+                error: "STOK_TIDAK_VALID", 
+                message: "Stok yang dipilih tidak tersedia atau sudah terjual." 
+            }), { status: 404 })
+        }
+        stock = specificStock
+    } else {
+        // 1B. GET AVAILABLE STOCK (FIFO - First In First Out)
+        // We order by created_at ascending to get the oldest stock first
+        const { data: stocks, error: stockCheckError } = await supabase
+            .from('account_stocks')
+            .select('*')
+            .eq('product_id', product.id)
+            .eq('is_sold', false)
+            .order('created_at', { ascending: true })
+            .limit(1)
+
+        if (stockCheckError) {
+            throw new Error("Gagal cek stok: " + stockCheckError.message)
+        }
+
+        if (!stocks || stocks.length === 0) {
+            // STOCK HABIS
+            return new Response(JSON.stringify({ 
+                error: "STOK_HABIS", 
+                message: "Maaf, stok produk ini sedang habis." 
+            }), { status: 404 })
+        }
+        stock = stocks[0]
     }
 
-    if (!stocks || stocks.length === 0) {
-        // STOCK HABIS
-        return new Response(JSON.stringify({ 
-            error: "STOK_HABIS", 
-            message: "Maaf, stok produk ini sedang habis." 
-        }), { status: 404 })
-    }
-
-    const stock = stocks[0]
     const accountData = stock.account_data
 
     // 2. GENERATE TRANSACTION ID (PREFIX-RANDOM)
@@ -58,7 +79,7 @@ export async function POST(request) {
     const transactionId = `${prefix}-${randomStr}`
 
     // 3. MARK STOCK AS SOLD
-    const { error: updateError } = await supabase
+    const { data: updatedStock, error: updateError } = await supabase
         .from('account_stocks')
         .update({
             is_sold: true,
@@ -67,9 +88,14 @@ export async function POST(request) {
             transaction_id: transactionId
         })
         .eq('id', stock.id)
+        .select()
 
     if (updateError) {
         throw new Error("Gagal update stok: " + updateError.message)
+    }
+
+    if (!updatedStock || updatedStock.length === 0) {
+        throw new Error("Gagal update status stok (Row tidak ditemukan atau tidak berubah)")
     }
 
     // 4. GENERATE COPY TEXT FROM TEMPLATE

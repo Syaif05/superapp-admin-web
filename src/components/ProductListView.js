@@ -1,13 +1,15 @@
 import { useState, useRef } from 'react'
 import Link from 'next/link'
-import { Trash2, FileCode, Users, Palette, Upload, Download, FileSpreadsheet, Package } from 'lucide-react'
+import { Trash2, FileCode, Users, Palette, Upload, Download, FileSpreadsheet, Package, MessageSquare } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import AccountManager from './AccountManager'
+import AccountTemplateEditor from './AccountTemplateEditor'
 
 export default function ProductListView({ products, onDelete, onAddNew }) {
   const fileInputRef = useRef(null)
   const [isUploading, setIsUploading] = useState(false)
   const [selectedAccountProduct, setSelectedAccountProduct] = useState(null)
+  const [editingTemplateProduct, setEditingTemplateProduct] = useState(null)
 
   // CSV TEMPLATE
   const downloadTemplate = () => {
@@ -74,7 +76,7 @@ export default function ProductListView({ products, onDelete, onAddNew }) {
     reader.readAsText(file)
   }
 
-  // --- RENDER ACCOUNT MANAGER IF SELECTED ---
+  // --- RENDER SUB-VIEWS ---
   if (selectedAccountProduct) {
       return <AccountManager product={selectedAccountProduct} onBack={() => setSelectedAccountProduct(null)} />
   }
@@ -82,6 +84,15 @@ export default function ProductListView({ products, onDelete, onAddNew }) {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
+      {/* EDIT TEMPLATE MODAL */}
+      {editingTemplateProduct && (
+          <AccountTemplateEditor 
+              product={editingTemplateProduct} 
+              onClose={() => setEditingTemplateProduct(null)}
+              onSuccess={() => window.location.reload()} // Simple reload to refresh data
+          />
+      )}
+
       {/* TOOLBAR */}
       <div className="flex flex-wrap gap-3 mb-4">
         <button 
@@ -179,7 +190,16 @@ export default function ProductListView({ products, onDelete, onAddNew }) {
                         {p.role || 'MEMBER'}
                     </span>
 
-                    {p.product_type !== 'account' && (
+                    {/* Edit Template Buttons */}
+                    {p.product_type === 'account' ? (
+                        <button 
+                            onClick={() => setEditingTemplateProduct(p)}
+                            className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-blue-600 hover:bg-blue-50 px-2 py-1 rounded-lg transition"
+                        >
+                            <MessageSquare size={14} />
+                            Edit Pesan
+                        </button>
+                    ) : (
                         <Link 
                             href={`/products/template/${p.id}`}
                             className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-blue-600 hover:bg-blue-50 px-2 py-1 rounded-lg transition"

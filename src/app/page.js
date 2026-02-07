@@ -65,7 +65,8 @@ export default function Home() {
               {activeTab === 'dashboard' && 'Dashboard'}
               {activeTab === 'products_manual' && 'Produk Satuan'}
               {activeTab === 'products_account' && 'Produk Akun'}
-              {activeTab === 'links' && 'Produk Link'} 
+              {activeTab === 'links' && 'Katalog Link'} 
+              {activeTab === 'link_manager' && 'Gudang File / Link'}
               {activeTab === 'add_new' && 'Tambah Produk'}
             </h2>
             <p className="text-sm text-slate-500 mt-1">Control Tower SuperApp</p>

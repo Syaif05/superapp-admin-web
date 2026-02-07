@@ -8,8 +8,8 @@ export default function Sidebar({ activeTab, setActiveTab }) {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, color: 'text-blue-400' },
     { id: 'products_manual', label: 'Produk Satuan', icon: Package, color: 'text-indigo-400' },
     { id: 'products_account', label: 'Produk Akun', icon: Package, color: 'text-blue-400' },
-    { id: 'links', label: 'Produk Link', icon: Link2, color: 'text-purple-400' },
-    { id: 'link_manager', label: 'Manajemen Link', icon: Folder, color: 'text-orange-400' }, // New Item
+    { id: 'links', label: 'Katalog Link', icon: Link2, color: 'text-purple-400' },
+    { id: 'link_manager', label: 'Gudang File / Link', icon: Folder, color: 'text-orange-400' }, // New Item
     { id: 'add_new', label: 'Tambah Produk', icon: Plus, color: 'text-emerald-400' },
   ]
 

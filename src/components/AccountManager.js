@@ -61,7 +61,8 @@ export default function AccountManager({ product, onBack }) {
 
     const { error } = await supabase.from('account_stocks').insert({
         product_id: product.id,
-        is_sold: false
+        is_sold: false,
+        account_data: newStockData // Fix: Include indexable data
     })
 
     if (!error) {

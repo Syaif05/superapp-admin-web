@@ -1,5 +1,6 @@
 import { google } from "googleapis";
 import { supabase } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
 
 // SERVICE ACCOUNT AUTH
 const SCOPES = [
@@ -19,10 +20,27 @@ const gmailService = google.gmail({ version: 'v1', auth });
 
 export async function POST(request) {
   try {
-    const { product, email_pembeli, stock_id } = await request.json()
+    const { product: clientProduct, email_pembeli, stock_id } = await request.json()
 
-    if (!product || !product.id || !email_pembeli) {
+    if (!clientProduct || !clientProduct.id || !email_pembeli) {
       return new Response(JSON.stringify({ error: "Data tidak lengkap" }), { status: 400 })
+    }
+
+    // Initialize Admin Client for RLS Bypass
+    const supabaseAdmin = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY
+    )
+
+    // 0. FETCH FULL PRODUCT DATA (backend trust source)
+    const { data: product, error: productError } = await supabaseAdmin
+        .from('products')
+        .select('*')
+        .eq('id', clientProduct.id)
+        .single()
+
+    if (productError || !product) {
+        throw new Error("Produk tidak ditemukan di database")
     }
 
     console.log(`[PROCESS-ACCOUNT-ORDER] Processing for ${email_pembeli}, Product: ${product.name}, StockID: ${stock_id || 'AUTO'}`)
@@ -31,7 +49,7 @@ export async function POST(request) {
 
     if (stock_id) {
         // 1A. GET SPECIFIC STOCK
-        const { data: specificStock, error: specificError } = await supabase
+        const { data: specificStock, error: specificError } = await supabaseAdmin
             .from('account_stocks')
             .select('*')
             .eq('id', stock_id)
@@ -49,7 +67,7 @@ export async function POST(request) {
     } else {
         // 1B. GET AVAILABLE STOCK (FIFO - First In First Out)
         // We order by created_at ascending to get the oldest stock first
-        const { data: stocks, error: stockCheckError } = await supabase
+        const { data: stocks, error: stockCheckError } = await supabaseAdmin
             .from('account_stocks')
             .select('*')
             .eq('product_id', product.id)
@@ -78,8 +96,8 @@ export async function POST(request) {
     const randomStr = Math.random().toString(36).substring(2, 12).toUpperCase() // 10 chars
     const transactionId = `${prefix}-${randomStr}`
 
-    // 3. MARK STOCK AS SOLD
-    const { data: updatedStock, error: updateError } = await supabase
+    // 3. MARK STOCK AS SOLD (Using Admin Client)
+    const { data: updatedStock, error: updateError } = await supabaseAdmin
         .from('account_stocks')
         .update({
             is_sold: true,
@@ -99,7 +117,7 @@ export async function POST(request) {
     }
 
     // 4. GENERATE COPY TEXT FROM TEMPLATE
-    // Default Template if not configured
+    // Prioritize configured template, fallback to default
     let template = product.account_config?.template || 
 `Terimakasih sudah membeli {Nama Produk}.
 Berikut detail akun anda:
@@ -115,13 +133,15 @@ Transaction ID: {Transaction ID}
     
     // Replace Dynamic Fields from Account Data
     // e.g. {Email}, {Password}, {Pin}
-    Object.keys(accountData).forEach(key => {
-        const regex = new RegExp(`{${key}}`, 'g') // Replace all occurrences
-        template = template.replace(regex, accountData[key])
-    })
+    if (accountData) {
+        Object.keys(accountData).forEach(key => {
+            const regex = new RegExp(`{${key}}`, 'g') // Replace all occurrences
+            template = template.replace(regex, accountData[key])
+        })
+    }
 
-    // 5. INSERT HISTORY
-    const { error: historyError } = await supabase.from('history').insert({
+    // 5. INSERT HISTORY (Using Admin Client for safety)
+    const { error: historyError } = await supabaseAdmin.from('history').insert({
         buyer_email: email_pembeli,
         product_name: product.name,
         product_code: transactionId, // Use TRX ID as Product Code in History

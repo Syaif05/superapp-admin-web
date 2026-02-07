@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Save, AlertCircle, Plus, Trash2, Calendar, Lock, Type, Hash, UploadCloud, Loader2, X } from 'lucide-react'
+import { Save, AlertCircle, Plus, Trash2, Calendar, Lock, Type, Hash, UploadCloud, Loader2, X, Eye } from 'lucide-react'
 
 export default function AddProductForm({ onSuccess, initialType = 'manual' }) {
   const [loading, setLoading] = useState(false)
@@ -10,7 +10,7 @@ export default function AddProductForm({ onSuccess, initialType = 'manual' }) {
   // Basic Info
   const [name, setName] = useState('')
   const [code, setCode] = useState('')
-  const [role, setRole] = useState('MEMBER') // MEMBER, ADMIN, HOST
+  const [prefixCode, setPrefixCode] = useState('') // Pindah ke Basic Info (khusus Akun)
   
   // Manual / Invite Only
   const [groupEmail, setGroupEmail] = useState('')
@@ -19,7 +19,6 @@ export default function AddProductForm({ onSuccess, initialType = 'manual' }) {
   const [file, setFile] = useState(null)
   
   // Account Product Config
-  const [prefixCode, setPrefixCode] = useState('')
   // accountFields sekarang array of objects: { name: 'Email', type: 'text' }
   const [accountFields, setAccountFields] = useState([
     { name: 'Email', type: 'text' },
@@ -34,6 +33,9 @@ Transaction ID: {Transaction ID}`)
   // Temp State untuk Tambah Field Baru
   const [newFieldName, setNewFieldName] = useState('')
   const [newFieldType, setNewFieldType] = useState('text') // text, password, date, number
+
+  // Template Preview
+  const [showPreview, setShowPreview] = useState(false)
 
   useEffect(() => {
     if (initialType) setProductType(initialType)
@@ -64,6 +66,24 @@ Transaction ID: {Transaction ID}`)
     setAccountFields(newFields)
   }
 
+  const getTemplatePreview = () => {
+      let preview = copyTemplate
+      preview = preview.replace(/{Nama Produk}/g, name || 'Netflix Premium')
+      preview = preview.replace(/{Transaction ID}/g, `${prefixCode || 'NFX'}-123456789`)
+      preview = preview.replace(/{Email Pembeli}/g, 'customer@example.com')
+      
+      accountFields.forEach(f => {
+          let dummyVal = '...'
+          if (f.type === 'date') dummyVal = '2026-12-31'
+          else if (f.type === 'password') dummyVal = 'secret123'
+          else if (f.type === 'number') dummyVal = '1234'
+          else dummyVal = f.name === 'Email' ? 'user@netflix.com' : 'Sesuatu...'
+          
+          preview = preview.replace(new RegExp(`{${f.name}}`, 'g'), dummyVal)
+      })
+      return preview
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
@@ -91,9 +111,8 @@ Transaction ID: {Transaction ID}`)
       const payload = {
         name,
         product_code: code || null, 
-        role,
         product_type: productType,
-        is_active: true,
+        // Removed is_active handling to fix DB error
         template_url: publicUrl
       }
 
@@ -188,7 +207,7 @@ Transaction ID: {Transaction ID}`)
                   />
                </div>
                
-               {productType !== 'account' && ( 
+               {productType !== 'account' ? ( 
                    <div>
                       <label className="block text-sm font-bold text-slate-700 mb-2">Kode Produk (Opsional)</label>
                       <input 
@@ -199,20 +218,26 @@ Transaction ID: {Transaction ID}`)
                         placeholder="NETFLIX-1B"
                       />
                    </div>
+               ) : (
+                  <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">Prefix Kode (3 Huruf)</label>
+                      <div className="relative">
+                        <input 
+                          required
+                          maxLength={3}
+                          type="text" 
+                          value={prefixCode}
+                          onChange={e => setPrefixCode(e.target.value.toUpperCase())}
+                          className="w-full p-3 bg-slate-50 border border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono tracking-widest uppercase font-bold"
+                          placeholder="NFX"
+                        />
+                        <div className="absolute right-3 top-3 text-xs text-slate-400 font-bold">
+                             {prefixCode.length}/3
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">Digunakan untuk generate Transaction ID (Contoh: NFX-8273...)</p>
+                  </div>
                )}
-
-               <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Role User</label>
-                  <select 
-                    value={role}
-                    onChange={e => setRole(e.target.value)}
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="MEMBER">MEMBER</option>
-                    <option value="ADMIN">ADMIN</option>
-                    <option value="HOST">HOST</option>
-                  </select>
-               </div>
            </div>
         </div>
 
@@ -268,7 +293,7 @@ Transaction ID: {Transaction ID}`)
            </div>
         )}
 
-        {/* B. CONFIG AKUN (UPDATED WITH TYPED FIELDS) */}
+        {/* B. CONFIG AKUN (UPDATED WITH PREVIEW & TYPED FIELDS) */}
         {productType === 'account' && (
            <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 space-y-6 animate-in slide-in-from-top-2">
                <div className="flex items-center gap-3 mb-2">
@@ -279,20 +304,6 @@ Transaction ID: {Transaction ID}`)
                  </div>
               </div>
               
-              {/* Prefix Code */}
-              <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Prefix Kode Transaksi (3 Huruf)</label>
-                  <input 
-                    required
-                    maxLength={3}
-                    type="text" 
-                    value={prefixCode}
-                    onChange={e => setPrefixCode(e.target.value.toUpperCase())}
-                    className="w-32 p-3 bg-white border border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-center tracking-widest uppercase font-bold"
-                    placeholder="NFX"
-                  />
-              </div>
-
               {/* Dynamic Field Builder with TYPES */}
               <div className="bg-white p-5 rounded-xl border border-blue-100">
                   <label className="block text-sm font-bold text-slate-700 mb-4">Kolom Data Akun</label>
@@ -351,29 +362,56 @@ Transaction ID: {Transaction ID}`)
                   </div>
               </div>
 
-              {/* Template Editor */}
-              <div>
-                  <div className="flex justify-between items-center mb-2">
+              {/* Template Editor with Live Preview */}
+              <div className="bg-white p-5 rounded-xl border border-blue-100">
+                  <div className="flex justify-between items-center mb-4">
                       <label className="block text-sm font-bold text-slate-700">Template Pesan Salin</label>
-                      <span className="text-xs text-slate-500">Gunakan placeholder di bawah</span>
+                      <button 
+                        type="button"
+                        onClick={() => setShowPreview(!showPreview)}
+                        className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700"
+                      >
+                         <Eye size={14} /> {showPreview ? 'Sembunyikan Preview' : 'Lihat Preview'}
+                      </button>
                   </div>
-                  <textarea 
-                    rows={6}
-                    value={copyTemplate}
-                    onChange={e => setCopyTemplate(e.target.value)}
-                    className="w-full p-4 bg-slate-900 text-green-400 font-mono text-sm rounded-xl border border-slate-800 focus:outline-none focus:ring-2 focus:ring-green-500"
-                  />
-                  <div className="mt-3 flex flex-wrap gap-2">
-                      {['{Nama Produk}', '{Transaction ID}', '{Email Pembeli}', ...accountFields.map(f => `{${f.name}}`)].map(token => (
-                          <button
-                            key={token}
-                            type="button"
-                            onClick={() => setCopyTemplate(prev => prev + ' ' + token)}
-                            className="px-2 py-1 bg-white border border-slate-200 text-slate-600 text-xs rounded-md hover:border-blue-400 hover:text-blue-600 transition"
-                          >
-                              {token}
-                          </button>
-                      ))}
+                  
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {/* Editor */}
+                      <div className="space-y-2">
+                          <textarea 
+                            rows={8}
+                            value={copyTemplate}
+                            onChange={e => setCopyTemplate(e.target.value)}
+                            className="w-full p-4 bg-slate-900 text-green-400 font-mono text-sm rounded-xl border border-slate-800 focus:outline-none focus:ring-2 focus:ring-green-500"
+                            placeholder="Ketik template pesan anda disini..."
+                          />
+                          <div className="flex flex-wrap gap-2">
+                                {['{Nama Produk}', '{Transaction ID}', '{Email Pembeli}', ...accountFields.map(f => `{${f.name}}`)].map(token => (
+                                    <button
+                                      key={token}
+                                      type="button"
+                                      onClick={() => setCopyTemplate(prev => prev + ' ' + token)}
+                                      className="px-2 py-1 bg-slate-100 border border-slate-200 text-slate-600 text-xs font-medium rounded-md hover:bg-white hover:border-blue-400 hover:text-blue-600 transition"
+                                    >
+                                        {token}
+                                    </button>
+                                ))}
+                          </div>
+                      </div>
+
+                      {/* Preview Box */}
+                      {showPreview ? (
+                          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 h-full">
+                              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Live Preview</div>
+                              <div className="whitespace-pre-wrap font-mono text-sm text-slate-700 bg-white p-4 rounded-lg border border-slate-100 h-[200px] overflow-y-auto shadow-sm">
+                                  {getTemplatePreview()}
+                              </div>
+                          </div>
+                      ) : (
+                          <div className="hidden lg:flex items-center justify-center bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-400 text-sm italic">
+                              Klik tombol "Lihat Preview" untuk melihat hasil.
+                          </div>
+                      )}
                   </div>
               </div>
            </div>

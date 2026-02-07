@@ -290,4 +290,3 @@ export default function AccountManager({ product, onBack }) {
     </div>
   )
 }
-}

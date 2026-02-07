@@ -122,9 +122,13 @@ Transaction ID: {Transaction ID}`)
         payload.email_body = emailBody
         
         if(!groupEmail) throw new Error("Email Group wajib diisi untuk produk manual!")
+        if(!payload.product_code) throw new Error("Kode Produk wajib diisi!")
       }
       else if (productType === 'account') {
         payload.prefix_code = prefixCode.toUpperCase()
+        // FIX: Use Prefix Code as Product Code to satisfy NOT NULL constraint
+        payload.product_code = prefixCode.toUpperCase() 
+        
         payload.account_config = {
             fields: accountFields, // Array of { name, type }
             template: copyTemplate
@@ -209,8 +213,9 @@ Transaction ID: {Transaction ID}`)
                
                {productType !== 'account' ? ( 
                    <div>
-                      <label className="block text-sm font-bold text-slate-700 mb-2">Kode Produk (Opsional)</label>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">Kode Produk</label>
                       <input 
+                        required
                         type="text" 
                         value={code}
                         onChange={e => setCode(e.target.value)}

@@ -1,11 +1,13 @@
 import { useState, useRef } from 'react'
 import Link from 'next/link'
-import { Trash2, FileCode, Users, Palette, Upload, Download, FileSpreadsheet } from 'lucide-react'
+import { Trash2, FileCode, Users, Palette, Upload, Download, FileSpreadsheet, Package } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import AccountManager from './AccountManager'
 
 export default function ProductListView({ products, onDelete, onAddNew }) {
   const fileInputRef = useRef(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [selectedAccountProduct, setSelectedAccountProduct] = useState(null)
 
   // CSV TEMPLATE
   const downloadTemplate = () => {
@@ -72,6 +74,11 @@ export default function ProductListView({ products, onDelete, onAddNew }) {
     reader.readAsText(file)
   }
 
+  // --- RENDER ACCOUNT MANAGER IF SELECTED ---
+  if (selectedAccountProduct) {
+      return <AccountManager product={selectedAccountProduct} onBack={() => setSelectedAccountProduct(null)} />
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
@@ -107,7 +114,7 @@ export default function ProductListView({ products, onDelete, onAddNew }) {
               disabled={isUploading}
               className="flex items-center gap-2 bg-green-50 text-green-700 border border-green-200 px-4 py-2 rounded-xl text-sm font-bold hover:bg-green-100 transition"
            >
-              {isUploading ? <Upload size={16} className="animate-bounce"/> : <FileSpreadsheet size={16} />}
+              {isUploading ? <Upload size={16} className="animate-bounce" /> : <FileSpreadsheet size={16} />}
               <span>{isUploading ? 'Mengupload...' : 'Import CSV'}</span>
            </button>
         </div>
@@ -130,7 +137,11 @@ export default function ProductListView({ products, onDelete, onAddNew }) {
             
             {/* Header Produk */}
             <div className="mb-4">
-              <span className="inline-block bg-slate-900 text-white text-xs font-bold px-3 py-1 rounded-lg mb-3">
+              <span className={`inline-block text-xs font-bold px-3 py-1 rounded-lg mb-3 ${
+                p.product_type === 'account' ? 'bg-blue-600 text-white' : 
+                p.product_type === 'link' ? 'bg-purple-600 text-white' : 
+                'bg-slate-900 text-white'
+              }`}>
                 {p.product_code || 'NO-CODE'}
               </span>
               <h3 className="text-lg font-bold text-slate-800 truncate" title={p.name}>
@@ -140,34 +151,54 @@ export default function ProductListView({ products, onDelete, onAddNew }) {
 
             {/* Info Detail */}
             <div className="space-y-3 mb-6">
-              <div className="flex items-center text-sm text-slate-500 bg-slate-50 p-2 rounded-lg">
-                <Users size={14} className="mr-2 text-slate-400 shrink-0" />
-                <span className="truncate" title={p.group_email}>
-                  {p.group_email || 'Tidak ada grup'}
-                </span>
-              </div>
-              <div className="flex items-center text-sm text-slate-500 bg-slate-50 p-2 rounded-lg">
-                <FileCode size={14} className="mr-2 text-slate-400 shrink-0" />
-                <span className="truncate">
-                  {p.email_body ? 'Custom Template' : 'Default Template'}
-                </span>
-              </div>
+               {/* Show Type Badge */}
+               <div className="flex items-center gap-2">
+                   <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${
+                        p.product_type === 'account' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                        p.product_type === 'link' ? 'bg-purple-50 text-purple-600 border-purple-100' :
+                        'bg-slate-50 text-slate-500 border-slate-200'
+                   }`}>
+                        {p.product_type === 'manual' ? 'Undangan' : p.product_type}
+                   </span>
+               </div>
+
+               {p.product_type === 'manual' && (
+                 <div className="flex items-center text-sm text-slate-500 bg-slate-50 p-2 rounded-lg">
+                    <Users size={14} className="mr-2 text-slate-400 shrink-0" />
+                    <span className="truncate" title={p.group_email}>
+                    {p.group_email || 'Tidak ada grup'}
+                    </span>
+                 </div>
+               )}
             </div>
 
             {/* Footer: Role & Tombol Edit */}
-            <div className="flex justify-between items-center pt-4 border-t border-slate-50">
-               <span className="font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded text-xs">
-                  {p.role || 'MEMBER'}
-               </span>
+            <div className="pt-4 border-t border-slate-50">
+               <div className="flex justify-between items-center mb-3">
+                    <span className="font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded text-xs">
+                        {p.role || 'MEMBER'}
+                    </span>
 
-               {/* TOMBOL EDIT TEMPLATE (YANG DIPERBAIKI) */}
-               <Link 
-                  href={`/products/template/${p.id}`}
-                  className="flex items-center gap-2 text-xs font-bold text-purple-600 bg-purple-50 px-3 py-2 rounded-lg hover:bg-purple-100 transition"
-               >
-                  <Palette size={14} />
-                  Edit Desain
-               </Link>
+                    {p.product_type !== 'account' && (
+                        <Link 
+                            href={`/products/template/${p.id}`}
+                            className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-blue-600 hover:bg-blue-50 px-2 py-1 rounded-lg transition"
+                        >
+                            <Palette size={14} />
+                            Desain
+                        </Link>
+                    )}
+               </div>
+
+                {/* Account Manager Button */}
+                {p.product_type === 'account' && (
+                    <button 
+                        onClick={() => setSelectedAccountProduct(p)}
+                        className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-600/20"
+                    >
+                        <Package size={16}/> Kelola Stok Akun
+                    </button>
+                )}
             </div>
           </div>
         ))}

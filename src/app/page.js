@@ -114,7 +114,18 @@ export default function Home() {
               />
             )}
             
-            {activeTab === 'links' && <LinkManager />}
+            {activeTab === 'links' && (
+              <ProductListView 
+                products={products.filter(p => p.product_type === 'link')} 
+                onDelete={handleDelete} 
+                onAddNew={() => {
+                   setPreselectedType('link')
+                   setActiveTab('add_new')
+                }}
+              />
+            )}
+
+            {activeTab === 'link_manager' && <LinkManager />}
 
             {activeTab === 'add_new' && (
               <AddProductForm 
@@ -124,6 +135,7 @@ export default function Home() {
                   // Redirect back to appropriate tab based on type
                   if (preselectedType === 'account') setActiveTab('products_account')
                   else if (preselectedType === 'manual') setActiveTab('products_manual')
+                  else if (preselectedType === 'link') setActiveTab('links')
                   else setActiveTab('dashboard')
                 }} 
               />

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LayoutDashboard, Package, Plus, Link2, Menu, X, LogOut } from 'lucide-react'
+import { LayoutDashboard, Package, Plus, Link2, Menu, X, LogOut, Folder } from 'lucide-react'
 
 export default function Sidebar({ activeTab, setActiveTab }) {
   const [isOpen, setIsOpen] = useState(false)

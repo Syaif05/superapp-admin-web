@@ -1,47 +1,77 @@
-import { useState } from 'react'
-import { UploadCloud, Loader2, Plus, X } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { Save, AlertCircle, Plus, Trash2, Calendar, Lock, Type, Hash, UploadCloud, Loader2, X } from 'lucide-react'
 
-export default function AddProductForm({ onSuccess }) {
-  const [isSubmitting, setIsSubmitting] = useState(false)
+export default function AddProductForm({ onSuccess, initialType = 'manual' }) {
+  const [loading, setLoading] = useState(false)
+  
+  const [productType, setProductType] = useState(initialType)
   
   // Basic Info
-  const [form, setForm] = useState({ name: '', code: '', email: '', role: 'MEMBER' })
-  const [productType, setProductType] = useState('manual') // manual, link, account
+  const [name, setName] = useState('')
+  const [code, setCode] = useState('')
+  const [role, setRole] = useState('MEMBER') // MEMBER, ADMIN, HOST
+  
+  // Manual / Invite Only
+  const [groupEmail, setGroupEmail] = useState('')
+  const [emailSubject, setEmailSubject] = useState('')
+  const [emailBody, setEmailBody] = useState('')
   const [file, setFile] = useState(null)
-
-  // Account Config
+  
+  // Account Product Config
   const [prefixCode, setPrefixCode] = useState('')
-  const [accountFields, setAccountFields] = useState(['Email', 'Password']) // Default fields
-  const [copyTemplate, setCopyTemplate] = useState(
-`Terimakasih sudah membeli di toko.
-Berikut produk {Nama Produk} yang anda beli : 
-Email : {Email}
-Password : {Password}
-akun aktif sejak {Tanggal Aktif}.
-Terimakasih sudah berbelanja.`
-  )
-  const [newField, setNewField] = useState('')
+  // accountFields sekarang array of objects: { name: 'Email', type: 'text' }
+  const [accountFields, setAccountFields] = useState([
+    { name: 'Email', type: 'text' },
+    { name: 'Password', type: 'password' }
+  ])
+  const [copyTemplate, setCopyTemplate] = useState(`Terimakasih sudah membeli {Nama Produk}.
+Berikut detail akun anda:
+Email: {Email}
+Password: {Password}
+Transaction ID: {Transaction ID}`)
+  
+  // Temp State untuk Tambah Field Baru
+  const [newFieldName, setNewFieldName] = useState('')
+  const [newFieldType, setNewFieldType] = useState('text') // text, password, date, number
 
-  // Field Management
-  const addField = () => {
-    if (newField && !accountFields.includes(newField)) {
-      setAccountFields([...accountFields, newField])
-      setNewField('')
+  useEffect(() => {
+    if (initialType) setProductType(initialType)
+  }, [initialType])
+
+  const FIELD_TYPES = [
+    { id: 'text', label: 'Teks', icon: Type },
+    { id: 'password', label: 'Password', icon: Lock },
+    { id: 'date', label: 'Tanggal', icon: Calendar },
+    { id: 'number', label: 'Angka', icon: Hash },
+  ]
+
+  const handleAddAccountField = () => {
+    if (!newFieldName.trim()) return
+    // Cek duplikat
+    if (accountFields.some(f => f.name.toLowerCase() === newFieldName.trim().toLowerCase())) {
+        alert("Nama kolom sudah ada!")
+        return
     }
+    setAccountFields([...accountFields, { name: newFieldName.trim(), type: newFieldType }])
+    setNewFieldName('')
+    setNewFieldType('text')
   }
 
-  const removeField = (field) => {
-    setAccountFields(accountFields.filter(f => f !== field))
+  const handleRemoveAccountField = (index) => {
+    const newFields = [...accountFields]
+    newFields.splice(index, 1)
+    setAccountFields(newFields)
   }
 
-  async function handleSubmit(e) {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    setIsSubmitting(true)
+    setLoading(true)
 
     try {
       let publicUrl = null
 
+      // Upload HTML Template if Manual
       if (file && productType === 'manual') {
         const fileExt = file.name.split('.').pop()
         const fileName = `${Date.now()}.${fileExt}`
@@ -59,210 +89,166 @@ Terimakasih sudah berbelanja.`
       }
 
       const payload = {
-        name: form.name,
-        product_code: form.code.toUpperCase(),
-        group_email: form.email,
-        role: form.role,
-        template_url: publicUrl,
-        product_type: productType
+        name,
+        product_code: code || null, 
+        role,
+        product_type: productType,
+        is_active: true,
+        template_url: publicUrl
       }
 
-      // Add Account Config if Account Type
-      if (productType === 'account') {
+      if (productType === 'manual') {
+        payload.group_email = groupEmail
+        payload.email_subject = emailSubject.toUpperCase()
+        payload.email_body = emailBody
+        
+        if(!groupEmail) throw new Error("Email Group wajib diisi untuk produk manual!")
+      }
+      else if (productType === 'account') {
         payload.prefix_code = prefixCode.toUpperCase()
         payload.account_config = {
-            fields: accountFields,
+            fields: accountFields, // Array of { name, type }
             template: copyTemplate
         }
-        // Validate
-        if(prefixCode.length !== 3) throw new Error("Prefix Code harus 3 huruf!")
-        if(accountFields.length === 0) throw new Error("Minimal harus ada 1 kolom data akun!")
+        
+        if (prefixCode.length !== 3) throw new Error("Prefix Code harus 3 huruf!")
+        if (accountFields.length === 0) throw new Error("Minimal harus ada 1 kolom data akun!")
       }
 
-      const { error: dbError } = await supabase.from('products').insert(payload)
-
-      if (dbError) throw dbError
+      const { error } = await supabase.from('products').insert(payload)
       
-      alert('Produk berhasil disimpan!')
-      // Reset
-      setForm({ name: '', code: '', email: '', role: 'MEMBER' })
-      setProductType('manual')
-      setPrefixCode('')
-      setAccountFields(['Email', 'Password'])
-      setFile(null)
+      if (error) throw error
+      
+      alert('Produk berhasil dibuat!')
       onSuccess()
-      
-    } catch (error) {
-      console.error(error)
-      if (error.code === '23505') {
-        alert('Gagal: Produk dengan kode tersebut sudah ada.')
-      } else {
-        alert(`Gagal menyimpan: ${error.message}`)
-      }
+
+    } catch (err) {
+      alert(`Error: ${err.message}`)
     } finally {
-      setIsSubmitting(false)
+      setLoading(false)
     }
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="bg-white rounded-2xl shadow-lg shadow-slate-200/50 border border-slate-100 p-6 md:p-8">
-        <h2 className="text-xl font-bold text-slate-800 mb-6">Produk Baru</h2>
+    <div className="max-w-4xl mx-auto space-y-8 animate-in slide-in-from-bottom-5 duration-500">
+      
+      <div className="flex items-center space-x-4 border-b pb-6 border-slate-200">
+          <div className="p-3 bg-blue-600 rounded-xl shadow-lg shadow-blue-200">
+             <Plus className="text-white" size={24} />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-slate-800">Tambah Produk Baru</h2>
+            <p className="text-slate-500">Konfigurasi produk sistem otomatis</p>
+          </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-8">
         
-        {/* TIPE PRODUK */}
-        <div className="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Tipe Produk</label>
-            <div className="flex gap-4">
-                {['manual', 'link', 'account'].map(type => (
+        {/* STEP 1: PILIH TIPE (Disabled jika initialType ada) */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+            <h3 className="text-lg font-bold mb-4 text-slate-700">Jenis Produk</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[
+                    { id: 'manual', label: 'Sistem Undangan', desc: 'Via Email Group/Invite' },
+                    { id: 'account', label: 'Stok Akun', desc: 'Email/Pass/PIN' },
+                    { id: 'link', label: 'Produk Link', desc: 'Direct URL Access' },
+                ].map(type => (
                     <button
-                        key={type}
                         type="button"
-                        onClick={() => setProductType(type)}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold capitalize transition ${
-                            productType === type 
-                            ? 'bg-slate-900 text-white shadow-md' 
-                            : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-100'
-                        }`}
+                        key={type.id}
+                        disabled={initialType && initialType !== type.id} 
+                        onClick={() => setProductType(type.id)}
+                        className={`p-4 rounded-xl border-2 text-left transition-all ${
+                            productType === type.id 
+                            ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200 ring-offset-2' 
+                            : 'border-slate-100 hover:border-blue-200 hover:bg-slate-50 opacity-100' // Always visible
+                        } ${initialType && initialType !== type.id ? 'opacity-50 cursor-not-allowed hidden' : ''}`} 
                     >
-                        {type === 'manual' ? 'Undangan Email' : type === 'link' ? 'Link / File' : 'Akun Otomatis'}
+                        <span className="block font-bold text-slate-800">{type.label}</span>
+                        <span className="text-xs text-slate-500">{type.desc}</span>
                     </button>
                 ))}
             </div>
-            <p className="text-xs text-slate-400 mt-2">
-                {productType === 'manual' && "Kirim undangan email Google Group secara manual/otomatis."}
-                {productType === 'link' && "Kirim link download file atau akses server."}
-                {productType === 'account' && "Jual akun otomatis (Email, Password, dll) dengan sistem stok."}
-            </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700">Nama Produk</label>
-              <input 
-                required 
-                type="text" 
-                value={form.name} 
-                onChange={e => setForm({...form, name: e.target.value})}
-                placeholder="Netflix Premium"
-                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700">Kode Unik</label>
-              <input 
-                required 
-                maxLength={10} 
-                type="text" 
-                value={form.code} 
-                onChange={e => setForm({...form, code: e.target.value})}
-                placeholder="NETFLIX"
-                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none uppercase font-mono"
-              />
-            </div>
-          </div>
-          
-          {/* KONFIGURASI KHUSUS AKUN */}
-          {productType === 'account' && (
-             <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 space-y-6 animate-in slide-in-from-top-2">
-                <div className="flex items-center gap-2 mb-2">
-                    <span className="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded">KONFIGURASI AKUN</span>
-                </div>
+        {/* STEP 2: INFO DASAR */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-5">
+           <h3 className="text-lg font-bold text-slate-700">Informasi Dasar</h3>
+           
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+               <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Nama Produk</label>
+                  <input 
+                    required
+                    type="text" 
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                    placeholder="Contoh: Netflix Premium 1 Bulan"
+                  />
+               </div>
+               
+               {productType !== 'account' && ( 
+                   <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">Kode Produk (Opsional)</label>
+                      <input 
+                        type="text" 
+                        value={code}
+                        onChange={e => setCode(e.target.value)}
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                        placeholder="NETFLIX-1B"
+                      />
+                   </div>
+               )}
 
-                {/* PREFIX */}
-                <div>
-                     <label className="text-sm font-bold text-slate-700">Prefix Transaksi (3 Huruf)</label>
-                     <input 
-                        required 
-                        maxLength={3}
-                        value={prefixCode}
-                        onChange={e => setPrefixCode(e.target.value.toUpperCase())}
-                        placeholder="NFL"
-                        className="w-24 mt-1 p-3 bg-white border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none uppercase font-mono text-center font-bold"
-                     />
-                     <p className="text-xs text-blue-400 mt-1">Contoh ID nanti: <b>{prefixCode || 'NFL'}-A1B2C3...</b></p>
-                </div>
+               <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Role User</label>
+                  <select 
+                    value={role}
+                    onChange={e => setRole(e.target.value)}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="MEMBER">MEMBER</option>
+                    <option value="ADMIN">ADMIN</option>
+                    <option value="HOST">HOST</option>
+                  </select>
+               </div>
+           </div>
+        </div>
 
-                {/* FIELDS CONFIG */}
-                <div>
-                    <label className="text-sm font-bold text-slate-700">Kolom Data Akun</label>
-                    <p className="text-xs text-slate-500 mb-2">Data apa saja yang perlu disimpan untuk setiap akun?</p>
-                    
-                    <div className="flex flex-wrap gap-2 mb-3">
-                        {accountFields.map(f => (
-                            <span key={f} className="flex items-center gap-1 bg-white border border-blue-200 text-blue-700 px-3 py-1 rounded-full text-sm font-bold shadow-sm">
-                                {f}
-                                <button type="button" onClick={() => removeField(f)} className="hover:text-red-500"><X size={14}/></button>
-                            </span>
-                        ))}
-                    </div>
-
-                    <div className="flex gap-2">
-                        <input 
-                            value={newField}
-                            onChange={e => setNewField(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addField())}
-                            placeholder="Tambah kolom.. (misal: PIN, Expired)"
-                            className="flex-1 p-2 bg-white border border-blue-200 rounded-lg text-sm"
-                        />
-                        <button type="button" onClick={addField} className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700"><Plus size={20}/></button>
-                    </div>
-                </div>
-
-                {/* TEMPLATE EDITOR */}
-                <div>
-                    <label className="text-sm font-bold text-slate-700">Template Pesan (Salin Teks)</label>
-                    <p className="text-xs text-slate-500 mb-2">Gunakan <b>{`{NamaKolom}`}</b> sebagai placeholder.</p>
-                    <textarea 
-                        rows={6}
-                        value={copyTemplate}
-                        onChange={e => setCopyTemplate(e.target.value)}
-                        className="w-full p-3 bg-white border border-blue-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none"
-                    />
-                    <div className="mt-2 flex gap-2 flex-wrap">
-                        <span className="text-xs text-slate-400">Placeholder Tersedia: </span>
-                        {accountFields.map(f => (
-                            <span key={f} className="text-xs bg-slate-200 px-1 rounded text-slate-600 font-mono cursor-pointer hover:bg-slate-300" onClick={() => setCopyTemplate(prev => prev + ` {${f}}`)}>
-                                {`{${f}}`}
-                            </span>
-                        ))}
-                        <span className="text-xs bg-slate-200 px-1 rounded text-slate-600 font-mono cursor-pointer hover:bg-slate-300" onClick={() => setCopyTemplate(prev => prev + ` {Nama Produk}`)}>{`{Nama Produk}`}</span>
-                    </div>
-                </div>
-
-             </div>
-          )}
-
-          {/* EMAIL GROUP (Hanya Manual) */}
-          {productType === 'manual' && (
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700">Email Google Group</label>
-                <input 
-                  required 
-                  type="email" 
-                  value={form.email} 
-                  onChange={e => setForm({...form, email: e.target.value})}
-                  placeholder="nama-grup@sekolah.sch.id"
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                />
+        {/* STEP 3: KONFIGURASI KHUSUS */}
+        
+        {/* A. CONFIG MANUAL */}
+        {productType === 'manual' && (
+           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-6 animate-in slide-in-from-top-2">
+              <div className="flex items-center gap-3 mb-2">
+                 <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg"><AlertCircle size={20}/></div>
+                 <h3 className="text-lg font-bold text-slate-700">Konfigurasi Undangan</h3>
               </div>
-          )}
 
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-700">Role Akses (Default)</label>
-            <select 
-              value={form.role} 
-              onChange={e => setForm({...form, role: e.target.value})}
-              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-            >
-              <option value="MEMBER">MEMBER (Anggota)</option>
-              <option value="MANAGER">MANAGER (Pengelola)</option>
-              <option value="OWNER">OWNER (Pemilik)</option>
-            </select>
-          </div>
+              <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Email Group / Sender</label>
+                  <input 
+                    required
+                    type="email" 
+                    value={groupEmail}
+                    onChange={e => setGroupEmail(e.target.value)}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="family-plan@netflix.com"
+                  />
+              </div>
 
-          {/* TEMPLATE HTML (Hanya Manual) */}
-          {productType === 'manual' && (
+              <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Subject Email (Keyword)</label>
+                  <input 
+                    type="text" 
+                    value={emailSubject}
+                    onChange={e => setEmailSubject(e.target.value)}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="NETFLIX HOUSEHOLD UPDATE"
+                  />
+              </div>
+              
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700">Template Email (HTML)</label>
                 <div className="relative border-2 border-dashed border-slate-300 rounded-xl p-8 hover:bg-slate-50 hover:border-blue-400 transition-all text-center">
@@ -279,17 +265,132 @@ Terimakasih sudah berbelanja.`
                   </div>
                 </div>
               </div>
-          )}
+           </div>
+        )}
 
-          <button 
-            disabled={isSubmitting} 
-            type="submit" 
-            className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 disabled:opacity-70 transition-all flex justify-center items-center shadow-lg shadow-slate-900/20"
-          >
-            {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : 'SIMPAN PRODUK'}
-          </button>
-        </form>
-      </div>
+        {/* B. CONFIG AKUN (UPDATED WITH TYPED FIELDS) */}
+        {productType === 'account' && (
+           <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 space-y-6 animate-in slide-in-from-top-2">
+               <div className="flex items-center gap-3 mb-2">
+                 <div className="p-2 bg-blue-200 text-blue-700 rounded-lg"><Hash size={20}/></div>
+                 <div>
+                    <h3 className="text-lg font-bold text-slate-700">Konfigurasi Stok Akun</h3>
+                    <p className="text-sm text-slate-500">Tentukan format data akun yang akan dijual.</p>
+                 </div>
+              </div>
+              
+              {/* Prefix Code */}
+              <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Prefix Kode Transaksi (3 Huruf)</label>
+                  <input 
+                    required
+                    maxLength={3}
+                    type="text" 
+                    value={prefixCode}
+                    onChange={e => setPrefixCode(e.target.value.toUpperCase())}
+                    className="w-32 p-3 bg-white border border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-center tracking-widest uppercase font-bold"
+                    placeholder="NFX"
+                  />
+              </div>
+
+              {/* Dynamic Field Builder with TYPES */}
+              <div className="bg-white p-5 rounded-xl border border-blue-100">
+                  <label className="block text-sm font-bold text-slate-700 mb-4">Kolom Data Akun</label>
+                  
+                  {/* List Existing Fields */}
+                  <div className="space-y-3 mb-4">
+                      {accountFields.map((f, i) => (
+                          <div key={i} className="flex items-center gap-3 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                              <span className="bg-slate-200 text-slate-600 px-2 py-1 rounded text-xs font-bold uppercase tracking-wider w-20 text-center">
+                                  {f.type}
+                              </span>
+                              <span className="font-bold text-slate-700 flex-1">{f.name}</span>
+                              <button 
+                                type="button" 
+                                onClick={() => handleRemoveAccountField(i)}
+                                className="text-red-400 hover:text-red-600 p-1"
+                              >
+                                  <Trash2 size={16}/>
+                              </button>
+                          </div>
+                      ))}
+                  </div>
+
+                  {/* Add New Field Form */}
+                  <div className="flex gap-2 items-end bg-slate-50 p-3 rounded-lg border border-dashed border-slate-300">
+                      <div className="flex-1">
+                          <label className="text-xs text-slate-500 font-bold mb-1 block">Nama Kolom</label>
+                          <input 
+                            type="text" 
+                            value={newFieldName}
+                            onChange={e => setNewFieldName(e.target.value)}
+                            className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm"
+                            placeholder="Misal: Tanggal Expired"
+                            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddAccountField())}
+                          />
+                      </div>
+                      <div className="w-1/3">
+                          <label className="text-xs text-slate-500 font-bold mb-1 block">Tipe Data</label>
+                          <select 
+                            value={newFieldType}
+                            onChange={e => setNewFieldType(e.target.value)}
+                            className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm"
+                          >
+                              {FIELD_TYPES.map(t => (
+                                  <option key={t.id} value={t.id}>{t.label}</option>
+                              ))}
+                          </select>
+                      </div>
+                      <button 
+                         type="button" 
+                         onClick={handleAddAccountField}
+                         className="p-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition mb-0.5"
+                      >
+                         <Plus size={20}/>
+                      </button>
+                  </div>
+              </div>
+
+              {/* Template Editor */}
+              <div>
+                  <div className="flex justify-between items-center mb-2">
+                      <label className="block text-sm font-bold text-slate-700">Template Pesan Salin</label>
+                      <span className="text-xs text-slate-500">Gunakan placeholder di bawah</span>
+                  </div>
+                  <textarea 
+                    rows={6}
+                    value={copyTemplate}
+                    onChange={e => setCopyTemplate(e.target.value)}
+                    className="w-full p-4 bg-slate-900 text-green-400 font-mono text-sm rounded-xl border border-slate-800 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                  <div className="mt-3 flex flex-wrap gap-2">
+                      {['{Nama Produk}', '{Transaction ID}', '{Email Pembeli}', ...accountFields.map(f => `{${f.name}}`)].map(token => (
+                          <button
+                            key={token}
+                            type="button"
+                            onClick={() => setCopyTemplate(prev => prev + ' ' + token)}
+                            className="px-2 py-1 bg-white border border-slate-200 text-slate-600 text-xs rounded-md hover:border-blue-400 hover:text-blue-600 transition"
+                          >
+                              {token}
+                          </button>
+                      ))}
+                  </div>
+              </div>
+           </div>
+        )}
+
+        <div className="pt-6 border-t border-slate-200 flex justify-end">
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="flex items-center gap-2 bg-slate-900 text-white px-8 py-4 rounded-xl font-bold hover:bg-slate-800 transition shadow-xl shadow-slate-900/10 disabled:opacity-50"
+            >
+               {loading ? <Loader2 className="animate-spin" /> : <Save size={20}/>}
+              <span>Simpan Produk</span>
+            </button>
+        </div>
+
+      </form>
     </div>
   )
 }

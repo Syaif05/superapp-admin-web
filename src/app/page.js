@@ -13,6 +13,7 @@ export default function Home() {
   const [products, setProducts] = useState([])
   const [histories, setHistories] = useState([])
   const [loading, setLoading] = useState(true)
+  const [preselectedType, setPreselectedType] = useState('manual') // For AddProductForm
 
   useEffect(() => {
     fetchData()
@@ -43,20 +44,29 @@ export default function Home() {
     }
   }
 
+  const handleTabChange = (tab) => {
+    setActiveTab(tab)
+    // Jika klik sidebar "Tambah Produk", reset tipe agar user bisa pilih
+    if (tab === 'add_new') {
+      setPreselectedType(null) 
+    }
+  }
+
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Sidebar activeTab={activeTab} setActiveTab={handleTabChange} />
       
-      {/* MAIN CONTENT: Margin kiri hilang di mobile (ml-0), ada di desktop (md:ml-64) */}
+      {/* MAIN CONTENT */}
       <main className="flex-1 ml-0 md:ml-64 p-4 md:p-8 pt-20 md:pt-8 transition-all duration-300">
         
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
             <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
               {activeTab === 'dashboard' && 'Dashboard'}
-              {activeTab === 'products' && 'Produk Satuan'}
+              {activeTab === 'products_manual' && 'Produk Satuan'}
+              {activeTab === 'products_account' && 'Produk Akun'}
               {activeTab === 'links' && 'Produk Link'} 
-              {activeTab === 'add_new' && 'Tambah Baru'}
+              {activeTab === 'add_new' && 'Tambah Produk'}
             </h2>
             <p className="text-sm text-slate-500 mt-1">Control Tower SuperApp</p>
           </div>
@@ -82,21 +92,41 @@ export default function Home() {
                />
             )}
             
-            {activeTab === 'products' && (
+            {activeTab === 'products_manual' && (
               <ProductListView 
-                products={products} 
+                products={products.filter(p => p.product_type === 'manual')} 
                 onDelete={handleDelete} 
-                onAddNew={() => setActiveTab('add_new')} 
+                onAddNew={() => {
+                   setPreselectedType('manual')
+                   setActiveTab('add_new')
+                }}
+              />
+            )}
+
+            {activeTab === 'products_account' && (
+              <ProductListView 
+                products={products.filter(p => p.product_type === 'account')} 
+                onDelete={handleDelete} 
+                onAddNew={() => {
+                   setPreselectedType('account')
+                   setActiveTab('add_new')
+                }}
               />
             )}
             
             {activeTab === 'links' && <LinkManager />}
 
             {activeTab === 'add_new' && (
-              <AddProductForm onSuccess={() => {
-                fetchData()
-                setActiveTab('products')
-              }} />
+              <AddProductForm 
+                initialType={preselectedType}
+                onSuccess={() => {
+                  fetchData()
+                  // Redirect back to appropriate tab based on type
+                  if (preselectedType === 'account') setActiveTab('products_account')
+                  else if (preselectedType === 'manual') setActiveTab('products_manual')
+                  else setActiveTab('dashboard')
+                }} 
+              />
             )}
           </div>
         )}

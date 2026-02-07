@@ -17,14 +17,19 @@ export default function AccountManager({ product, onBack }) {
   const [isUploading, setIsUploading] = useState(false)
 
   // Config from Product
-  const fields = product.account_config?.fields || []
+  // NORMALIZE FIELDS (Support Old String[] and New Object[])
+  const rawFields = product.account_config?.fields || []
+  const fields = rawFields.map(f => {
+      if (typeof f === 'string') return { name: f, type: 'text' }
+      return f
+  })
+  const [isDeleting, setIsDeleting] = useState(false)
   
   useEffect(() => {
     fetchStocks()
   }, [])
 
   async function fetchStocks() {
-    setLoading(true)
     const { data, error } = await supabase
         .from('account_stocks')
         .select('*')
@@ -42,19 +47,20 @@ export default function AccountManager({ product, onBack }) {
             available: total - sold
         })
     }
-    setLoading(false)
   }
 
   // --- ACTIONS ---
   async function addStock(e) {
     e.preventDefault()
-    // Validate
-    const isValid = fields.every(f => newStockData[f] && newStockData[f].trim() !== '')
-    if (!isValid) return alert("Semua kolom harus diisi!")
+    
+    // Validate required fields
+    if (fields.some(f => !newStockData[f.name])) {
+        alert("Semua data akun wajib diisi!")
+        return
+    }
 
     const { error } = await supabase.from('account_stocks').insert({
         product_id: product.id,
-        account_data: newStockData,
         is_sold: false
     })
 
@@ -77,8 +83,8 @@ export default function AccountManager({ product, onBack }) {
   // --- CSV ACTIONS ---
   const downloadTemplate = () => {
     // Header based on fields
-    const csvHeader = fields.join(',') + "\n"
-    const csvExample = fields.map(f => `Contoh ${f}`).join(',')
+    const csvHeader = fields.map(f => f.name).join(',') + "\n"
+    const csvExample = fields.map(f => `Contoh ${f.name}`).join(',')
 
     const blob = new Blob([csvHeader + csvExample], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement("a")
@@ -102,7 +108,7 @@ export default function AccountManager({ product, onBack }) {
 
         // Header check
         const header = lines[0].trim().split(',')
-        if (header.some((h, i) => h.trim() !== fields[i])) {
+        if (header.some((h, i) => h.trim() !== fields[i]?.name)) {
             alert("Format header CSV tidak sesuai konfigurasi produk!")
             return
         }
@@ -119,7 +125,7 @@ export default function AccountManager({ product, onBack }) {
           fields.forEach((f, idx) => {
              const val = cols[idx]?.trim()
              if (!val) isValidRow = false
-             rowData[f] = val
+             rowData[f.name] = val
           })
 
           if (isValidRow) {
@@ -205,25 +211,32 @@ export default function AccountManager({ product, onBack }) {
 
         {/* ADD FORM */}
         {showAddForm && (
-            <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 animate-in slide-in-from-top-2">
-                <h3 className="font-bold text-slate-800 mb-4">Input Data Akun Baru</h3>
-                <form onSubmit={addStock} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                    {fields.map(f => (
-                        <div key={f}>
-                            <label className="text-xs font-bold text-slate-500 uppercase">{f}</label>
-                            <input 
-                                required
-                                value={newStockData[f] || ''}
-                                onChange={e => setNewStockData({...newStockData, [f]: e.target.value})}
-                                className="w-full mt-1 p-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                            />
-                        </div>
-                    ))}
-                </form>
-                <div className="flex justify-end">
-                     <button onClick={addStock} className="bg-blue-600 text-white font-bold px-6 py-2 rounded-lg hover:bg-blue-700">Simpan Akun</button>
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <Plus size={18} /> Tambah Stok Manual
+            </h3>
+            <form onSubmit={addStock} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {fields.map((f, i) => (
+                    <div key={i}>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">{f.name}</label>
+                        <input 
+                            type={f.type === 'string' ? 'text' : f.type || 'text'} // Handle clean type
+                            value={newStockData[f.name] || ''}
+                            onChange={e => setNewStockData({ ...newStockData, [f.name]: e.target.value })}
+                            className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            placeholder={f.name}
+                            required
+                        />
+                    </div>
+                ))}
+                <div className="flex items-end">
+                    <button type="submit" className="bg-slate-900 text-white px-6 py-2 rounded-lg font-bold text-sm hover:bg-slate-800 transition h-[38px]">
+                        Simpan
+                    </button>
+                    {/* Add CSV Import Info or Helper */}
                 </div>
-            </div>
+            </form>
+        </div>
         )}
 
         {/* LIST TABLE */}
@@ -232,7 +245,7 @@ export default function AccountManager({ product, onBack }) {
                 <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold">
                     <tr>
                         <th className="p-4">Status</th>
-                        {fields.map(f => <th key={f} className="p-4">{f}</th>)}
+                        {fields.map((f, i) => <th key={i} className="p-4">{f.name}</th>)}
                         <th className="p-4">Terjual Ke</th>
                         <th className="p-4 text-right">Aksi</th>
                     </tr>
@@ -249,9 +262,9 @@ export default function AccountManager({ product, onBack }) {
                                     {stock.is_sold ? 'TERJUAL' : 'TERSEDIA'}
                                 </span>
                             </td>
-                            {fields.map(f => (
-                                <td key={f} className="p-4 font-mono text-slate-700">
-                                    {stock.account_data[f]}
+                            {fields.map((f, i) => (
+                                <td key={i} className="p-4 font-mono text-slate-700">
+                                    {stock.account_data[f.name]}
                                 </td>
                             ))}
                             <td className="p-4 text-slate-500 text-xs">
@@ -276,4 +289,5 @@ export default function AccountManager({ product, onBack }) {
         </div>
     </div>
   )
+}
 }

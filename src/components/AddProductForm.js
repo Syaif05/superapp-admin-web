@@ -108,25 +108,37 @@ Transaction ID: {Transaction ID}`)
         publicUrl = data.publicUrl
       }
 
+      // Base Payload with Default Values to satisfy DB Constraints (NOT NULL)
       const payload = {
         name,
+        // Product Code: Required by DB.
         product_code: code || null, 
         product_type: productType,
-        // Removed is_active handling to fix DB error
-        template_url: publicUrl
+        template_url: publicUrl,
+        
+        // Default values for columns that might be NOT NULL in DB
+        // If these are not used for the current type, we send a dash "-"
+        group_email: groupEmail || '-', 
+        email_subject: (emailSubject || '-').toUpperCase(),
+        email_body: emailBody || '-',
+        prefix_code: null,
+        account_config: null
       }
 
+      // TYPE SPECIFIC OVERRIDES & VALIDATION
       if (productType === 'manual') {
+        // Restore actual values if Manual (though already set above, we ensure checking)
         payload.group_email = groupEmail
         payload.email_subject = emailSubject.toUpperCase()
         payload.email_body = emailBody
         
         if(!groupEmail) throw new Error("Email Group wajib diisi untuk produk manual!")
-        if(!payload.product_code) throw new Error("Kode Produk wajib diisi!")
+        if(!code) throw new Error("Kode Produk wajib diisi!")
+        payload.product_code = code // Ensure code is used
       }
       else if (productType === 'account') {
         payload.prefix_code = prefixCode.toUpperCase()
-        // FIX: Use Prefix Code as Product Code to satisfy NOT NULL constraint
+        // Use Prefix Code as Product Code
         payload.product_code = prefixCode.toUpperCase() 
         
         payload.account_config = {
@@ -136,6 +148,11 @@ Transaction ID: {Transaction ID}`)
         
         if (prefixCode.length !== 3) throw new Error("Prefix Code harus 3 huruf!")
         if (accountFields.length === 0) throw new Error("Minimal harus ada 1 kolom data akun!")
+      }
+      else if (productType === 'link') {
+          // For Link products, ensure product_code is set
+          if(!code) throw new Error("Kode Produk wajib diisi!")
+          payload.product_code = code
       }
 
       const { error } = await supabase.from('products').insert(payload)

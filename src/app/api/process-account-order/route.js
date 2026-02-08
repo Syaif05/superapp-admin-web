@@ -1,8 +1,7 @@
 import { google } from "googleapis";
-import { supabase } from "@/lib/supabase";
 import { createClient } from "@supabase/supabase-js";
 
-// SERVICE ACCOUNT AUTH
+// SERVICE ACCOUNT AUTH (Keep existing Google Auth)
 const SCOPES = [
   "https://www.googleapis.com/auth/gmail.send",
   "https://www.googleapis.com/auth/drive.readonly"
@@ -19,84 +18,101 @@ const auth = new google.auth.GoogleAuth({
 const gmailService = google.gmail({ version: 'v1', auth });
 
 export async function POST(request) {
-  try {
-    const { product: clientProduct, email_pembeli, stock_id } = await request.json()
+  const LOG_PREFIX = `[PROCESS-ACCOUNT-ORDER-${Date.now()}]`;
+  console.log(`${LOG_PREFIX} Started`);
 
-    if (!clientProduct || !clientProduct.id || !email_pembeli) {
-      return new Response(JSON.stringify({ error: "Data tidak lengkap" }), { status: 400 })
+  try {
+    // 1. VALIDATE ENVIRONMENT
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !serviceRoleKey) {
+        console.error(`${LOG_PREFIX} MISSING ENV VARIABLES`);
+        return new Response(JSON.stringify({ error: "Server Misconfiguration: Missing Supabase Keys" }), { status: 500 });
     }
 
-    // Initialize Admin Client for RLS Bypass
-    const supabaseAdmin = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.SUPABASE_SERVICE_ROLE_KEY
-    )
+    // 2. INIT ADMIN CLIENT (Bypass RLS)
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false
+        }
+    });
 
-    // 0. FETCH FULL PRODUCT DATA (backend trust source)
+    // 3. PARSE REQUEST
+    const { product: clientProduct, email_pembeli, stock_id } = await request.json();
+
+    if (!clientProduct?.id || !email_pembeli) {
+      console.warn(`${LOG_PREFIX} Invalid Payload`, { clientProduct, email_pembeli });
+      return new Response(JSON.stringify({ error: "Data tidak lengkap (Product ID / Email)" }), { status: 400 });
+    }
+
+    console.log(`${LOG_PREFIX} Processing Order for ${email_pembeli}, ProductID: ${clientProduct.id}`);
+
+    // 4. FETCH PRODUCT SOURCE OF TRUTH (Database)
     const { data: product, error: productError } = await supabaseAdmin
         .from('products')
         .select('*')
         .eq('id', clientProduct.id)
-        .single()
+        .single();
 
     if (productError || !product) {
-        throw new Error("Produk tidak ditemukan di database")
+        console.error(`${LOG_PREFIX} Product Lookup Failed`, productError);
+        throw new Error("Produk tidak ditemukan di sistem.");
     }
 
-    console.log(`[PROCESS-ACCOUNT-ORDER] Processing for ${email_pembeli}, Product: ${product.name}, StockID: ${stock_id || 'AUTO'}`)
-
+    // 5. STOCK SELECTION LOGIC
     let stock;
 
     if (stock_id) {
-        // 1A. GET SPECIFIC STOCK
+        // A. Specific Stock
+        console.log(`${LOG_PREFIX} Selecting Specific Stock: ${stock_id}`);
         const { data: specificStock, error: specificError } = await supabaseAdmin
             .from('account_stocks')
             .select('*')
             .eq('id', stock_id)
             .eq('product_id', product.id)
             .eq('is_sold', false)
-            .single()
+            .single();
         
         if (specificError || !specificStock) {
+             console.warn(`${LOG_PREFIX} Specific Stock Not Available`, specificError);
              return new Response(JSON.stringify({ 
                 error: "STOK_TIDAK_VALID", 
-                message: "Stok yang dipilih tidak tersedia atau sudah terjual." 
-            }), { status: 404 })
+                message: "Stok yang dipilih sudah terjual atau tidak valid." 
+            }), { status: 404 });
         }
-        stock = specificStock
+        stock = specificStock;
     } else {
-        // 1B. GET AVAILABLE STOCK (FIFO - First In First Out)
-        // We order by created_at ascending to get the oldest stock first
+        // B. FIFO (First In First Out)
+        console.log(`${LOG_PREFIX} Auto-Selecting Stock (FIFO)`);
         const { data: stocks, error: stockCheckError } = await supabaseAdmin
             .from('account_stocks')
             .select('*')
             .eq('product_id', product.id)
             .eq('is_sold', false)
             .order('created_at', { ascending: true })
-            .limit(1)
+            .limit(1);
 
-        if (stockCheckError) {
-            throw new Error("Gagal cek stok: " + stockCheckError.message)
-        }
+        if (stockCheckError) throw new Error("Database Error (Stock Check): " + stockCheckError.message);
 
         if (!stocks || stocks.length === 0) {
-            // STOCK HABIS
+            console.warn(`${LOG_PREFIX} Out of Stock`);
             return new Response(JSON.stringify({ 
                 error: "STOK_HABIS", 
-                message: "Maaf, stok produk ini sedang habis." 
-            }), { status: 404 })
+                message: "Stok produk ini sedang kosong." 
+            }), { status: 404 });
         }
-        stock = stocks[0]
+        stock = stocks[0];
     }
 
-    const accountData = stock.account_data
+    console.log(`${LOG_PREFIX} Stock Selected: ${stock.id}`);
 
-    // 2. GENERATE TRANSACTION ID (PREFIX-RANDOM)
-    const prefix = product.prefix_code || 'TRX'
-    const randomStr = Math.random().toString(36).substring(2, 12).toUpperCase() // 10 chars
-    const transactionId = `${prefix}-${randomStr}`
+    // 6. GENERATE TRANSACTION & MARK AS SOLD
+    const prefix = product.prefix_code || 'TRX';
+    const randomStr = Math.random().toString(36).substring(2, 12).toUpperCase();
+    const transactionId = `${prefix}-${randomStr}`;
 
-    // 3. MARK STOCK AS SOLD (Using Admin Client)
     const { data: updatedStock, error: updateError } = await supabaseAdmin
         .from('account_stocks')
         .update({
@@ -106,62 +122,68 @@ export async function POST(request) {
             transaction_id: transactionId
         })
         .eq('id', stock.id)
-        .select()
+        .select();
 
-    if (updateError) {
-        throw new Error("Gagal update stok: " + updateError.message)
-    }
+    if (updateError) throw new Error("Gagal update status stok: " + updateError.message);
+    if (!updatedStock || updatedStock.length === 0) throw new Error("Gagal verifikasi update stok.");
 
-    if (!updatedStock || updatedStock.length === 0) {
-        throw new Error("Gagal update status stok (Row tidak ditemukan atau tidak berubah)")
-    }
+    console.log(`${LOG_PREFIX} Stock Marked as SOLD. TRX: ${transactionId}`);
 
-    // 4. GENERATE COPY TEXT FROM TEMPLATE
-    // Prioritize configured template, fallback to default
+    // 7. TEMPLATE GENERATION (Robust)
     let template = product.account_config?.template || 
 `Terimakasih sudah membeli {Nama Produk}.
-Berikut detail akun anda:
+Detail Akun:
 Email: {Email}
 Password: {Password}
-Transaction ID: {Transaction ID}
-`
-    // Replace Placeholders
-    // {Nama Produk}
-    template = template.replace(/{Nama Produk}/g, product.name)
-    template = template.replace(/{Transaction ID}/g, transactionId)
-    template = template.replace(/{Email Pembeli}/g, email_pembeli)
-    
-    // Replace Dynamic Fields from Account Data
-    // e.g. {Email}, {Password}, {Pin}
-    if (accountData) {
-        Object.keys(accountData).forEach(key => {
-            const regex = new RegExp(`{${key}}`, 'g') // Replace all occurrences
-            template = template.replace(regex, accountData[key])
-        })
-    }
+Transaction ID: {Transaction ID}`;
 
-    // 5. INSERT HISTORY (Using Admin Client for safety)
+    // Normalize: Replace case-insensitive standard placeholders
+    const replaceTag = (text, tag, value) => {
+        // Escape special regex chars in tag just in case
+        const safeTag = tag.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        // Regex to match {tag} case insensitively
+        const regex = new RegExp(safeTag, 'gi');
+        return text.replace(regex, value || '-');
+    };
+
+    template = replaceTag(template, '{Nama Produk}', product.name);
+    template = replaceTag(template, '{Transaction ID}', transactionId);
+    template = replaceTag(template, '{Email Pembeli}', email_pembeli);
+
+    // Dynamic Fields from Stock Data
+    const accountData = stock.account_data || {};
+    Object.keys(accountData).forEach(key => {
+        template = replaceTag(template, `{${key}}`, accountData[key]);
+    });
+
+    console.log(`${LOG_PREFIX} Template Generated`);
+
+    // 8. INSERT HISTORY
     const { error: historyError } = await supabaseAdmin.from('history').insert({
         buyer_email: email_pembeli,
         product_name: product.name,
-        product_code: transactionId, // Use TRX ID as Product Code in History
+        product_code: transactionId,
         generated_id: transactionId,
         status: 'SUCCESS',
-        message: template // Save the generated copy text so user can copy it later
-    })
+        message: template,
+        raw_data: accountData // Backup raw data
+    });
 
-    if (historyError) console.error("History Error:", historyError)
+    if (historyError) console.error(`${LOG_PREFIX} History Save Error`, historyError);
 
-    // 6. RESPONSE
+    // 9. RESPONSE
     return new Response(JSON.stringify({
         success: true,
         transactionId: transactionId,
-        copyText: template, // This text will be shown to user to copy
-        accountData: accountData // Return raw data too just in case
-    }), { status: 200 })
+        copyText: template,
+        accountData: accountData
+    }), { status: 200 });
 
   } catch (err) {
-    console.error("Critical Error Process Account:", err)
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 })
+    console.error(`[PROCESS-ACCOUNT-ORDER-ERROR]`, err);
+    return new Response(JSON.stringify({ 
+        error: "INTERNAL_ERROR", 
+        message: err.message 
+    }), { status: 500 });
   }
 }
